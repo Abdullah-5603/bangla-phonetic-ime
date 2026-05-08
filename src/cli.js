@@ -4,9 +4,15 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import {
   getCandidates,
+  getLanguageBreakdown,
+  getLanguageModelStats,
+  getProfile,
+  getRuntimeStats,
   learn,
   learnCorrection,
+  listProfiles,
   searchSentence,
+  setProfile,
   transliterate
 } from "./engine/index.js";
 import { clearMemory, loadMemory } from "./engine/user-memory.js";
@@ -22,6 +28,7 @@ import { getCacheStats } from "./engine/cache.js";
 import { getBigramScore, getTrigramScore } from "./engine/frequency-engine.js";
 import { getSentenceMemoryStats } from "./engine/sentence-memory.js";
 import { getTypoCandidates, getTypoStats } from "./engine/typo-learner.js";
+import { getRebuildStatus } from "./engine/background-rebuilder.js";
 
 export async function main(argv = process.argv.slice(2)) {
   if (argv.includes("--help") || argv.includes("-h")) {
@@ -88,6 +95,38 @@ async function runInteractive(options = {}) {
 
       if (command === ":memory-stats") {
         printMemoryStats();
+        continue;
+      }
+
+      if (command === ":profiles") {
+        console.log(listProfiles().join("\n"));
+        continue;
+      }
+
+      if (command.startsWith(":profile ")) {
+        switchProfile(command.slice(":profile ".length).trim());
+        continue;
+      }
+
+      if (command.startsWith(":lm ")) {
+        printLanguageModel(command.slice(":lm ".length));
+        continue;
+      }
+
+      if (command === ":perplexity") {
+        const stats = getLanguageModelStats();
+        console.log(`language model entries: ${stats.entries}`);
+        console.log(`quadgrams: ${stats.quadgrams}`);
+        continue;
+      }
+
+      if (command === ":runtime-stats") {
+        printRuntimeStats();
+        continue;
+      }
+
+      if (command === ":rebuild-status") {
+        printRebuildStatus();
         continue;
       }
 
@@ -208,6 +247,48 @@ function printMemoryStats() {
   }
 }
 
+function switchProfile(profileName) {
+  try {
+    setProfile(profileName);
+    console.log(`active profile: ${getProfile()}`);
+  } catch (error) {
+    console.log(error.message);
+  }
+}
+
+function printLanguageModel(phrase) {
+  const breakdown = getLanguageBreakdown(phrase);
+  console.log(`Unigram: ${breakdown.unigram.toFixed(2)}`);
+  console.log(`Bigram: ${breakdown.bigram.toFixed(2)}`);
+  console.log(`Trigram: ${breakdown.trigram.toFixed(2)}`);
+  console.log(`Quadgram: ${breakdown.quadgram.toFixed(2)}`);
+  console.log(`Final LM Score: ${breakdown.finalScore.toFixed(2)}`);
+}
+
+function printRuntimeStats() {
+  const stats = getRuntimeStats();
+  const typoStats = getTypoStats();
+  const sentenceStats = getSentenceMemoryStats();
+  console.log(`active profile: ${stats.activeProfile}`);
+  console.log(`learned typo count: ${typoStats.learnedPatterns}`);
+  console.log(`sentence memory count: ${sentenceStats.sentenceMemories}`);
+  console.log(`adaptation events: ${stats.adaptationEvents}`);
+  console.log(`rebuild queue: ${stats.rebuildQueue.length}`);
+  console.log("cache usage:");
+  for (const stat of stats.cacheStats) {
+    console.log(`- ${stat.name}: ${stat.size}/${stat.limit}`);
+  }
+}
+
+function printRebuildStatus() {
+  const status = getRebuildStatus();
+  console.log(`queue length: ${status.queueLength}`);
+  console.log(`last rebuild: ${status.lastRebuildAt ?? "never"}`);
+  for (const item of status.queue) {
+    console.log(`- ${item.task}: ${item.status}`);
+  }
+}
+
 function printNgram(phrase) {
   const parts = phrase.trim().split(/\s+/);
 
@@ -283,6 +364,12 @@ Interactive commands:
   :memory-stats             Show learning and cache stats
   :ngram phrase             Show bigram/trigram score
   :explain input            Explain ranking pipeline
+  :profile coding           Switch ranking profile
+  :profiles                 List profiles
+  :lm phrase                Show language-model scores
+  :perplexity               Show language-model stats
+  :runtime-stats            Show runtime adaptation stats
+  :rebuild-status           Show background rebuild state
   :memory                   Show saved corrections
   :clear-memory             Clear saved corrections after confirmation
   :clear-memory --yes       Clear saved corrections without confirmation`);

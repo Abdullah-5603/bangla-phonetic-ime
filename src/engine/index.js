@@ -8,6 +8,9 @@ import { tokenize } from "./tokenizer.js";
 export { learnCorrection } from "./user-memory.js";
 export { learn } from "./online-learning.js";
 export { searchSentence } from "./transliterate.js";
+export { getLanguageBreakdown, getLanguageModelStats } from "./language-model.js";
+export { getProfile, listProfiles, setProfile } from "./profile-manager.js";
+export { getRuntimeStats } from "./runtime-state.js";
 
 export function transliterate(input, options = {}) {
   return transliterateSentence(input, options);

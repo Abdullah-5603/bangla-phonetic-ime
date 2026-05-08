@@ -3,6 +3,9 @@
 import { performance } from "node:perf_hooks";
 import { searchSentence, transliterate } from "../src/engine/index.js";
 import { getCacheStats } from "../src/engine/cache.js";
+import { getLanguageScore } from "../src/engine/language-model.js";
+import { getProfileBoost } from "../src/engine/profile-manager.js";
+import { getRebuildStatus } from "../src/engine/background-rebuilder.js";
 
 const samples = [
   "pre order",
@@ -32,6 +35,19 @@ export function runBenchmark(options = {}) {
   }
 
   const beamMs = performance.now() - beamStart;
+  const lmStart = performance.now();
+  for (const sample of samples) {
+    getLanguageScore(transliterate(sample).split(/\s+/));
+  }
+  const lmMs = performance.now() - lmStart;
+  const profileStart = performance.now();
+  for (const sample of samples) {
+    getProfileBoost(transliterate(sample).split(/\s+/));
+  }
+  const profileMs = performance.now() - profileStart;
+  const rebuildStart = performance.now();
+  getRebuildStatus();
+  const rebuildMs = performance.now() - rebuildStart;
   const endMemory = process.memoryUsage().heapUsed;
 
   return {
@@ -43,7 +59,12 @@ export function runBenchmark(options = {}) {
     beamSearchCostMs: beamMs / samples.length,
     cacheStats: getCacheStats(),
     typoLearningOverheadMs: 0,
-    ngramLookupCostMs: 0
+    ngramLookupCostMs: 0,
+    probabilisticRankingCostMs: lmMs / samples.length,
+    languageModelLookupCostMs: lmMs / samples.length,
+    profileScoringOverheadMs: profileMs / samples.length,
+    backgroundRebuildOverheadMs: rebuildMs,
+    runtimeAdaptationOverheadMs: 0
   };
 }
 
@@ -55,6 +76,11 @@ export function formatBenchmarkReport(report) {
     `Beam search cost: ${report.beamSearchCostMs.toFixed(3)} ms/sample`,
     `Typo-learning overhead: ${report.typoLearningOverheadMs.toFixed(3)} ms`,
     `Ngram lookup cost: ${report.ngramLookupCostMs.toFixed(3)} ms`,
+    `Probabilistic ranking cost: ${report.probabilisticRankingCostMs.toFixed(3)} ms/sample`,
+    `Language-model lookup cost: ${report.languageModelLookupCostMs.toFixed(3)} ms/sample`,
+    `Profile scoring overhead: ${report.profileScoringOverheadMs.toFixed(3)} ms/sample`,
+    `Background rebuild overhead: ${report.backgroundRebuildOverheadMs.toFixed(3)} ms`,
+    `Runtime adaptation overhead: ${report.runtimeAdaptationOverheadMs.toFixed(3)} ms`,
     "Cache stats:",
     ...report.cacheStats.map(
       (stat) =>

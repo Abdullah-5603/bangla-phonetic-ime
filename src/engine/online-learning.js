@@ -3,13 +3,16 @@ import { learnSentencePattern } from "./sentence-memory.js";
 import { learnTypoPattern } from "./typo-learner.js";
 import { normalizeInput } from "./normalizer.js";
 import { clearCaches } from "./cache.js";
+import { appendLearningCase } from "./incremental-trainer.js";
+import { recordAdaptation } from "./runtime-state.js";
 
 export function learn(input, output, options = {}) {
   const normalized = normalizeInput(input);
   const result = {
     correction: learnCorrection(normalized, output),
     sentence: learnSentencePattern(normalized, output, options.context ?? "cli"),
-    typoPatterns: []
+    typoPatterns: [],
+    corpusRows: appendLearningCase(normalized, output, "User Learning")
   };
 
   const inputTokens = normalized.split(/\s+/);
@@ -27,6 +30,7 @@ export function learn(input, output, options = {}) {
     }
   }
 
+  recordAdaptation("online-learning");
   clearCaches();
   return result;
 }

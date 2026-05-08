@@ -11,6 +11,5 @@ test("advanced evaluator reports top-k and category metrics", () => {
 
   assert.equal(report.failed, 0);
   assert.match(formatted, /Top-3 Accuracy: 100\.0%/);
-  assert.match(formatted, /Typo Accuracy: 100\.0%/);
+  assert.match(formatted, /Typo Recovery Accuracy: 100\.0%/);
 });
-

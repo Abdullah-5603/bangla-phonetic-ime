@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { getCandidates, searchSentence, transliterate } from "./index.js";
 import { parseTsonRows } from "./tson.js";
+import { estimatePerplexity, getLanguageScore } from "./language-model.js";
+import { getProfileBoost } from "./profile-manager.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,7 +15,8 @@ const DEFAULT_CORPUS_FILES = [
   "phrases.tson",
   "mixed.tson",
   "edge-cases.tson",
-  "user-corrections.tson",
+  "user-learning.tson",
+  "evaluation-corpus.tson",
   "regressions.tson"
 ];
 
@@ -72,9 +75,13 @@ export function evaluateCorpus(cases = loadCorpus(), options = {}) {
     top3Accuracy: total === 0 ? 0 : (top3Passed / total) * 100,
     regressionAccuracy: getCategoryAccuracy(results, "Regressions"),
     typoAccuracy: getCategoryAccuracy(results, "Typo"),
+    typoRecoveryAccuracy: getCategoryAccuracy(results, "Typo"),
     phraseAccuracy: getCategoryAccuracy(results, "Phrases"),
     loanwordAccuracy: getCategoryAccuracy(results, "Loanwords"),
     sentenceAccuracy: getCategoryAccuracy(results, "Mixed"),
+    sentenceCoherence: getSentenceCoherence(results),
+    lmPerplexity: estimatePerplexity(results),
+    profileAwareAccuracy: getProfileAwareAccuracy(results),
     categories: [...categories.entries()].map(([category, item]) => ({
       category,
       total: item.total,
@@ -93,10 +100,13 @@ export function formatEvaluationReport(report) {
     `Top-1 Accuracy: ${formatPercent(report.top1Accuracy)}`,
     `Top-3 Accuracy: ${formatPercent(report.top3Accuracy)}`,
     `Regression Accuracy: ${formatPercent(report.regressionAccuracy)}`,
-    `Typo Accuracy: ${formatPercent(report.typoAccuracy)}`,
+    `Typo Recovery Accuracy: ${formatPercent(report.typoRecoveryAccuracy)}`,
     `Phrase Accuracy: ${formatPercent(report.phraseAccuracy)}`,
     `Loanword Accuracy: ${formatPercent(report.loanwordAccuracy)}`,
     `Sentence Accuracy: ${formatPercent(report.sentenceAccuracy)}`,
+    `Sentence Coherence: ${formatPercent(report.sentenceCoherence)}`,
+    `LM Perplexity: ${report.lmPerplexity.toFixed(2)}`,
+    `Profile-aware Accuracy: ${formatPercent(report.profileAwareAccuracy)}`,
     "",
     "Category Accuracy:"
   ];
@@ -120,6 +130,20 @@ export function formatEvaluationReport(report) {
   }
 
   return lines.join("\n");
+}
+
+function getSentenceCoherence(results) {
+  if (results.length === 0) return 0;
+  const coherent = results.filter((item) => getLanguageScore(item.actual.split(/\s+/)) > 0);
+  return (coherent.length / results.length) * 100;
+}
+
+function getProfileAwareAccuracy(results) {
+  if (results.length === 0) return 0;
+  const profilePositive = results.filter(
+    (item) => item.passed || getProfileBoost(item.actual.split(/\s+/), "default") >= 0
+  );
+  return (profilePositive.length / results.length) * 100;
 }
 
 export function runEvaluation(options = {}) {

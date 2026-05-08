@@ -7,6 +7,7 @@ const DEFAULT_SCORES = {
   loanword: 9000,
   "common-correction": 8000,
   "typo-learned": 7000,
+  "typo-canonical": 6500,
   "fuzzy-loanword": 5000,
   phonetic: 1000
 };

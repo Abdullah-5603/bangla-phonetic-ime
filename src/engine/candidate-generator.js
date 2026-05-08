@@ -5,6 +5,7 @@ import {
 import { getMemoryCorrection } from "./user-memory.js";
 import { getTypoCandidates, getTypoBoost } from "./typo-learner.js";
 import { createLRUCache } from "./cache.js";
+import { canonicalizeTypo } from "./typo-canonicalizer.js";
 import {
   damerauLevenshtein,
   getFuzzyKeys,
@@ -34,6 +35,7 @@ export function generateCandidates(input, options = {}) {
   addEntries(candidates, loanwords.get(key), key);
   addEntries(candidates, commonCorrections.get(key), key);
   addTypoCandidates(candidates, key);
+  addCanonicalTypoCandidate(candidates, key);
   addFuzzyLoanwordCandidates(candidates, key);
 
   if (options.phoneticFallback !== false) {
@@ -48,6 +50,30 @@ export function generateCandidates(input, options = {}) {
   const result = uniqueCandidates(candidates);
   candidateCache.set(cacheKey, result);
   return result;
+}
+
+function addCanonicalTypoCandidate(candidates, key) {
+  const canonical = canonicalizeTypo(key);
+
+  if (canonical.canonical === key || canonical.confidence < 0.65) {
+    return;
+  }
+
+  const entries = loanwords.get(canonical.canonical) ?? coreBangla.get(canonical.canonical) ?? [];
+
+  for (const entry of entries) {
+    addCandidate(candidates, {
+      ...entry,
+      score: Number(entry.score || 0) + Math.round(canonical.confidence * 3500),
+      source: "typo-canonical",
+      meta: {
+        ...(entry.meta ?? {}),
+        input: key,
+        canonical: canonical.canonical,
+        typoConfidence: canonical.confidence
+      }
+    });
+  }
 }
 
 function addTypoCandidates(candidates, key) {

@@ -1,5 +1,6 @@
 import { scoreTransition } from "./transition-scorer.js";
 import { scoreAdaptiveNode, scoreFinalSentence } from "./adaptive-ranker.js";
+import { scoreProbabilisticPath } from "./probabilistic-ranker.js";
 
 const DEFAULT_BEAM_WIDTH = 5;
 
@@ -36,7 +37,14 @@ export function beamSearch(graph, options = {}) {
   const finalPaths = prunePaths(
     (frontier.get(graph.tokens.length) ?? []).map((path) => ({
       ...path,
-      score: path.score + scoreFinalSentence(path, graph)
+      score:
+        path.score +
+        scoreFinalSentence(path, graph) +
+        scoreProbabilisticPath(path, graph, options).total,
+      meta: {
+        ...path.meta,
+        probabilistic: scoreProbabilisticPath(path, graph, options)
+      }
     })),
     beamWidth
   );

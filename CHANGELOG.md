@@ -2,6 +2,48 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.6 - 2026-05-08
+
+Probabilistic language-aware ranking and IME boundary release.
+
+### Added
+
+- Lightweight statistical language model with unigram, bigram, trigram, and quadgram scoring.
+- Probabilistic path ranker for sentence-level language probability and profile boosts.
+- Profile manager with default, coding, commerce, and personal TSON profiles.
+- Smarter typo canonicalizer with learned confidence and bounded edit-distance fallback.
+- Runtime state module for profile usage, adaptation events, cache stats, and rebuild queue status.
+- Background rebuild boundary.
+- Incremental trainer for appending user learning cases.
+- IME adapter boundary with session APIs only.
+- CLI commands:
+  - `:profile`
+  - `:profiles`
+  - `:lm`
+  - `:perplexity`
+  - `:runtime-stats`
+  - `:rebuild-status`
+- Tools:
+  - `build-language-model.js`
+  - `incremental-train.js`
+  - `rebuild-runtime-state.js`
+  - `compact-tson.js`
+  - `profile-builder.js`
+  - `memory-report.js`
+
+### Changed
+
+- Updated package version to `0.0.6`.
+- Beam final scoring now includes probabilistic language-model score and profile score.
+- Evaluation reports LM perplexity, sentence coherence, typo recovery, and profile-aware accuracy.
+- Benchmark reports probabilistic ranking, language-model lookup, profile scoring, rebuild, and runtime adaptation costs.
+
+### Known Limitations
+
+- Language-model data remains small.
+- Runtime rebuild is queue/state based, not a long-lived background worker.
+- IME adapter boundary is architecture only, not a system input method.
+
 ## v0.0.5 - 2026-05-08
 
 Adaptive learning and TSON infrastructure release.
