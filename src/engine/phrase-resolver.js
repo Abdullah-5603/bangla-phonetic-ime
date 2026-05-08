@@ -1,10 +1,12 @@
-import { phrases } from "../data/dictionary/phrases.js";
+import { loadCandidateDictionary } from "./dictionary-loader.js";
 import { normalizeInput } from "./normalizer.js";
 import { tokenize } from "./tokenizer.js";
 import { getMemoryCorrection } from "./user-memory.js";
 import { rankCandidates } from "./ranker.js";
 
-const phraseEntries = Object.entries(phrases)
+const phrases = loadCandidateDictionary("phrases.tson");
+const phraseCache = new Map();
+const phraseEntries = [...phrases.entries()]
   .map(([input, candidates]) => ({
     input,
     tokens: tokenize(normalizeInput(input)),
@@ -13,6 +15,12 @@ const phraseEntries = Object.entries(phrases)
   .sort((a, b) => b.tokens.length - a.tokens.length || b.input.length - a.input.length);
 
 export function getPhraseCandidatesAt(tokens, startIndex) {
+  const cacheKey = `${startIndex}:${tokens.map((token) => token.value).join("\u0001")}`;
+
+  if (phraseCache.has(cacheKey)) {
+    return phraseCache.get(cacheKey);
+  }
+
   const candidates = [];
   const memoryCandidate = getMemoryPhraseCandidateAt(tokens, startIndex);
 
@@ -37,9 +45,12 @@ export function getPhraseCandidatesAt(tokens, startIndex) {
     }
   }
 
-  return rankCandidates(candidates, {
+  const ranked = rankCandidates(candidates, {
     exactInput: tokensToInput(tokens.slice(startIndex))
   });
+
+  phraseCache.set(cacheKey, ranked);
+  return ranked;
 }
 
 export function resolvePhraseAt(tokens, startIndex) {
@@ -98,4 +109,3 @@ function matchesTokens(tokens, startIndex, phraseTokens) {
 function tokensToInput(tokens) {
   return tokens.map((token) => token.value).join("");
 }
-

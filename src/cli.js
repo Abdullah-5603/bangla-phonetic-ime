@@ -5,9 +5,18 @@ import { stdin as input, stdout as output } from "node:process";
 import {
   getCandidates,
   learnCorrection,
+  searchSentence,
   transliterate
 } from "./engine/index.js";
 import { clearMemory, loadMemory } from "./engine/user-memory.js";
+import {
+  formatEvaluationReport,
+  runEvaluation
+} from "./engine/evaluation.js";
+import {
+  formatBenchmarkReport,
+  runBenchmark
+} from "../tools/benchmark.js";
 
 export async function main(argv = process.argv.slice(2)) {
   if (argv.includes("--help") || argv.includes("-h")) {
@@ -46,6 +55,22 @@ async function runInteractive(options = {}) {
         continue;
       }
 
+      if (command.startsWith(":beam ")) {
+        printBeam(command.slice(":beam ".length));
+        continue;
+      }
+
+      if (command === ":eval") {
+        const report = runEvaluation();
+        console.log(formatEvaluationReport(report));
+        continue;
+      }
+
+      if (command === ":benchmark") {
+        console.log(formatBenchmarkReport(runBenchmark({ iterations: 300 })));
+        continue;
+      }
+
       if (command.startsWith(":fix ")) {
         saveCorrection(command.slice(":fix ".length));
         continue;
@@ -76,6 +101,19 @@ async function runInteractive(options = {}) {
   } finally {
     rl.close();
   }
+}
+
+function printBeam(inputText) {
+  const result = searchSentence(inputText, { beamWidth: 5 });
+
+  if (result.paths.length === 0) {
+    console.log("No beam paths.");
+    return;
+  }
+
+  result.paths.forEach((path, index) => {
+    console.log(`${index + 1}. ${path.outputs.join("")}   score: ${Math.round(path.score)}`);
+  });
 }
 
 function printCandidates(inputText) {
@@ -136,6 +174,9 @@ function printHelp() {
 Interactive commands:
   :q, :quit                 Exit
   :candidates order         Show candidate list with scores
+  :beam pre order korbo     Show beam search paths and scores
+  :eval                     Run corpus evaluation
+  :benchmark                Run speed benchmark
   :fix input = output       Save a user correction
   :memory                   Show saved corrections
   :clear-memory             Clear saved corrections after confirmation

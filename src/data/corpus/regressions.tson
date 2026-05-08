@@ -1,0 +1,10 @@
+# input	expected	category
+pre order	প্রি অর্ডার	Regressions
+pri order	প্রি অর্ডার	Regressions
+pri orrDar	প্রি অর্ডার	Regressions
+order	অর্ডার	Regressions
+computer	কম্পিউটার	Regressions
+school	স্কুল	Regressions
+ami bangla likhi	আমি বাংলা লিখি	Regressions
+dhonnobad	ধন্যবাদ	Regressions
+shikkha	শিক্ষা	Regressions

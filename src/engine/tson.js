@@ -34,6 +34,31 @@ export function parseTson(source) {
   return memory;
 }
 
+export function parseTsonRows(source, expectedColumns) {
+  const rows = [];
+  const text = String(source ?? "").trim();
+
+  if (!text) {
+    return rows;
+  }
+
+  for (const line of text.split(/\r?\n/)) {
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const columns = splitEscapedTabs(line).map(unescapeValue);
+
+    if (expectedColumns && columns.length !== expectedColumns) {
+      throw new SyntaxError("Invalid TSON row.");
+    }
+
+    rows.push(columns);
+  }
+
+  return rows;
+}
+
 export function stringifyTson(memory) {
   const lines = [HEADER];
 
@@ -52,6 +77,16 @@ export function stringifyTson(memory) {
         escapeValue(entry.updatedAt || new Date(0).toISOString())
       ].join("\t")
     );
+  }
+
+  return `${lines.join("\n")}\n`;
+}
+
+export function stringifyTsonRows(rows, header) {
+  const lines = header ? [header] : [];
+
+  for (const row of rows) {
+    lines.push(row.map(escapeValue).join("\t"));
   }
 
   return `${lines.join("\n")}\n`;
@@ -128,4 +163,3 @@ function unescapeValue(value) {
 
   return output;
 }
-

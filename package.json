@@ -1,6 +1,6 @@
 {
   "name": "bangla-phonetic-ime",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Terminal-only MVP for an Avro-like Bangla phonetic typing engine.",
   "type": "module",
   "bin": {
@@ -9,7 +9,11 @@
   "scripts": {
     "start": "node src/cli.js",
     "dev": "node src/cli.js --interactive",
-    "test": "node --test"
+    "test": "node --test",
+    "evaluate": "node tools/evaluate.js",
+    "benchmark": "node tools/benchmark.js",
+    "regression": "node tools/regression-check.js",
+    "validate:corpus": "node tools/validate-corpus.js"
   },
   "keywords": [
     "bangla",

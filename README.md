@@ -3,94 +3,62 @@
 A terminal-only Bangla phonetic transliteration engine in Node.js. It converts
 Banglish or romanized Bangla text into Unicode Bangla from the command line.
 
-Current version: `v0.0.3`
+Current version: `v0.0.4`
 
-This is not a system input method yet. It does not implement IBus, Fcitx5,
-Wayland, GTK, Qt, a GUI, tray app, Electron, Tauri, or global Linux typing. The
-current scope is only the reusable JavaScript engine and terminal CLI.
+This is still CLI-only. It does not implement IBus, Fcitx5, Wayland, GTK, Qt,
+Electron, Tauri, tray UI, or system-wide Linux typing.
 
-## v0.0.3 Update
+## v0.0.4 Features
 
-- User correction memory now uses compact TSON storage.
-- Runtime correction memory is stored at `src/data/user/user-dictionary.tson`.
-- The npm manifest remains `package.json` because npm requires it.
-
-TSON format in this project is a compact tab-separated object notation:
-
-```txt
-# bangla-phonetic-ime tson v1
-orrdar	অর্ডার	1	2026-05-08T00:00:00.000Z
-```
-
-## v0.0.2 Features
-
-- Candidate-based transliteration pipeline.
-- Phrase overrides such as `pre order => প্রি অর্ডার`.
-- Dictionary-ranked common Bangla words.
-- Loanword ranking for modern terms like `order`, `computer`, and `school`.
-- Common correction and light fuzzy lookup for cases like `orrDar`.
-- User correction memory with `learnCorrection(input, output)`.
-- Interactive CLI commands for candidates, fixes, memory display, and clearing.
+- Sentence-level candidate graph generation.
+- Beam search over sentence paths with configurable beam width.
+- Contextual transition scoring with bigram and phrase likelihoods.
+- TSON-backed dictionaries for core words, loanwords, phrases, corrections, and bigrams.
+- Bounded Damerau-Levenshtein fuzzy matching for longer high-confidence loanword keys.
+- Bangla output validation penalties for repeated hasanta, malformed kar ordering, and suspicious repetition.
+- Offline evaluation corpus with category accuracy and failed-case reporting.
+- Regression corpus for previously fixed behavior.
+- Benchmark tool for latency, throughput, memory, and beam-search cost.
 
 ## Architecture
 
-The engine is deterministic and modular:
-
 ```txt
 input
-  -> normalize input
+  -> normalize
   -> tokenize
-  -> check phrase dictionary
-  -> check user correction memory
-  -> generate multiple candidates
-  -> rank candidates
-  -> return best output
+  -> phrase resolution
+  -> generate candidates per token
+  -> build sentence candidate graph
+  -> contextual transition scoring
+  -> beam search
+  -> best sentence output
 ```
 
-Main modules:
+Main engine modules:
 
-- `src/engine/normalizer.js`
-- `src/engine/tokenizer.js`
-- `src/engine/phrase-resolver.js`
+- `src/engine/transliterate.js`
+- `src/engine/graph-builder.js`
+- `src/engine/beam-search.js`
+- `src/engine/contextual-ranker.js`
+- `src/engine/transition-scorer.js`
 - `src/engine/candidate-generator.js`
-- `src/engine/ranker.js`
-- `src/engine/parser.js`
+- `src/engine/evaluation.js`
 - `src/engine/user-memory.js`
-
-Dictionary and rule data live under `src/data/`.
-
-## Install
-
-```sh
-cd bangla-phonetic-ime
-npm install
-```
-
-There are currently no runtime dependencies.
 
 ## Run
 
 ```sh
-node src/cli.js "pre order"
+npm install
+node src/cli.js "pre order korbo"
 ```
 
 Output:
 
 ```txt
-প্রি অর্ডার
+প্রি অর্ডার করবো
 ```
 
-```sh
-node src/cli.js "ami bangla likhi"
-```
-
-Output:
-
-```txt
-আমি বাংলা লিখি
-```
-
-## Interactive Mode
+## Interactive CLI
 
 ```sh
 npm run dev
@@ -102,22 +70,22 @@ Commands:
 :q
 :quit
 :candidates order
+:beam pre order korbo
+:eval
+:benchmark
 :fix pre order = প্রি অর্ডার
 :memory
 :clear-memory
 :clear-memory --yes
 ```
 
-Example:
+Beam example:
 
 ```txt
-> pre order
-প্রি অর্ডার
-> :candidates order
-1. অর্ডার    score: 9500    source: loanword
-2. অর্দের    score: 1200    source: phonetic
-> :fix orrDar = অর্ডার
-Saved: orrDar => অর্ডার
+> :beam pre order korbo
+1. প্রি অর্ডার করবো   score: 56700
+2. প্রি অর্ডার করব   score: 43900
+3. প্রি অর্ডার কোর্বো   score: 36100
 ```
 
 ## Engine API
@@ -126,61 +94,85 @@ Saved: orrDar => অর্ডার
 import {
   getCandidates,
   learnCorrection,
+  searchSentence,
   transliterate
 } from "./src/engine/index.js";
 
-transliterate("pri orrDar");
+transliterate("pri odrer");
 // "প্রি অর্ডার"
 
-getCandidates("order");
-// [
-//   { text: "অর্ডার", score: 9500, source: "loanword", ... },
-//   { text: "অর্দের", score: 1200, source: "phonetic", ... }
-// ]
+getCandidates("order")[0].text;
+// "অর্ডার"
+
+searchSentence("pre order korbo", { beamWidth: 5 }).best.outputs.join("");
+// "প্রি অর্ডার করবো"
 
 learnCorrection("orrDar", "অর্ডার");
 ```
 
-## Adding Dictionary Words
+## TSON Data
 
-Add common Bangla words to `src/data/dictionary/core-bangla.js`:
-
-```js
-export const coreBangla = {
-  amar: [{ text: "আমার", score: 10000, source: "dictionary" }]
-};
-```
-
-Add modern loanwords to `src/data/dictionary/loanwords.js`:
-
-```js
-export const loanwords = {
-  order: [{ text: "অর্ডার", score: 9500, source: "loanword" }]
-};
-```
-
-## Adding Phrase Overrides
-
-Add phrase-level matches to `src/data/dictionary/phrases.js`:
-
-```js
-export const phrases = {
-  "pre order": [{ text: "প্রি অর্ডার", score: 15000, source: "phrase" }]
-};
-```
-
-Phrase matching is longest-match-first.
-
-## User Corrections
-
-In interactive mode:
+Dictionary data is stored in compact TSON files:
 
 ```txt
-> :fix pre order = প্রি অর্ডার
-Saved: pre order => প্রি অর্ডার
+src/data/dictionary/core-bangla.tson
+src/data/dictionary/loanwords.tson
+src/data/dictionary/phrases.tson
+src/data/dictionary/bigrams.tson
+src/data/dictionary/corrections.tson
+src/data/user/user-memory.tson
 ```
 
-Corrections are saved in `src/data/user/user-dictionary.tson`.
+Candidate dictionary rows:
+
+```txt
+input	output	score	source
+order	অর্ডার	9500	loanword
+```
+
+Bigram score rows:
+
+```txt
+previous current	score
+প্রি অর্ডার	15000
+```
+
+Project dictionaries, corpus, and user memory are stored as TSON.
+
+## Evaluation
+
+```sh
+npm run evaluate
+```
+
+Output includes total accuracy, category accuracy, and failed cases.
+
+```txt
+Total Accuracy: 100.0%
+
+Category Accuracy:
+- Common Bangla: 100.0% (4/4)
+- Loanwords: 100.0% (4/4)
+- Phrases: 100.0% (4/4)
+- Mixed: 100.0% (4/4)
+- Edge Cases: 100.0% (3/3)
+- Regressions: 100.0% (9/9)
+```
+
+Regression cases live in `src/data/corpus/regressions.tson`.
+
+## Benchmark
+
+```sh
+npm run benchmark
+```
+
+Reports:
+
+- transliterations/sec
+- average latency
+- memory delta
+- beam search cost
 
 ## Test
 
@@ -188,33 +180,23 @@ Corrections are saved in `src/data/user/user-dictionary.tson`.
 npm test
 ```
 
-## Punctuation
-
-ASCII `.` is consistently mapped to the Bangla danda `।` by default:
-
-```txt
-pre order. => প্রি অর্ডার।
-```
-
-Pass `{ bengaliFullStop: false }` to `transliterate()` to keep ASCII full stops.
-
 ## Known Limitations
 
-- This is still CLI-only and not a Linux input method.
-- Rule coverage is intentionally small and not full Avro compatibility.
-- Fuzzy matching is light and deterministic, not AI or ML.
-- Contextual ranking is minimal.
-- Candidate generation does not yet use a large cleaned frequency dictionary.
-- English words may transliterate if they look like Bangla phonetic input.
+- Corpus is still small.
+- Contextual scoring is deterministic heuristics, not ML.
+- Fuzzy matching is intentionally bounded and conservative.
+- Bangla grammar heuristics cover only a few MVP cases.
+- No system IME integration yet.
 
-## Future Plan
+## Future Roadmap
 
-1. Bigger cleaned dictionary
-2. Better fuzzy matching
-3. Contextual ranking
-4. IBus adapter
-5. Fcitx5 adapter
-6. Arch/Omarchy package
+v0.0.5:
+
+1. Larger corpus
+2. Better context learning
+3. Sentence memory
+4. Online learning
+5. Eventual Linux IME integration
 
 ## License And Attribution
 

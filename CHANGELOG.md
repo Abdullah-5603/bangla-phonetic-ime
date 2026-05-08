@@ -2,6 +2,41 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.4 - 2026-05-08
+
+Sentence-level intelligence and evaluation release.
+
+### Added
+
+- Candidate graph generation for full sentence search.
+- Beam search with configurable beam width.
+- Contextual transition scoring with bigram, phrase, loanword, grammar, and user-memory signals.
+- TSON-backed dictionaries for core words, loanwords, phrases, corrections, and bigrams.
+- Bounded Damerau-Levenshtein fuzzy matching for high-confidence loanword entries.
+- Bangla word validation penalties for suspicious output patterns.
+- Evaluation engine with category accuracy and failed-case reporting.
+- Benchmark script for throughput, latency, memory, and beam-search cost.
+- Regression corpus and regression-check script.
+- CLI commands:
+  - `:beam input`
+  - `:eval`
+  - `:benchmark`
+
+### Changed
+
+- Updated package version to `0.0.4`.
+- Moved sentence transliteration into `src/engine/transliterate.js`.
+- Replaced token-level best-candidate output with sentence-level beam search.
+- Replaced JS dictionary modules with TSON dictionary files.
+- Renamed user memory storage to `src/data/user/user-memory.tson`.
+- Converted evaluation corpus files and corpus tooling to TSON.
+
+### Known Limitations
+
+- Corpus and contextual grammar rules are still small.
+- Ranking remains deterministic heuristics; no neural model or external API.
+- Still CLI-only.
+
 ## v0.0.3 - 2026-05-08
 
 Storage-only release.
@@ -11,7 +46,7 @@ Storage-only release.
 - Updated package version to `0.0.3`.
 - Replaced user correction memory storage with compact TSON.
 - Renamed user memory file to `src/data/user/user-dictionary.tson`.
-- Removed runtime JSON parsing/stringifying from the user memory layer.
+- Removed runtime object parsing/stringifying from the user memory layer.
 
 ## v0.0.2 - 2026-05-08
 

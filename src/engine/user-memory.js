@@ -8,7 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const memoryPath = path.resolve(
   __dirname,
-  "../data/user/user-dictionary.tson"
+  "../data/user/user-memory.tson"
 );
 
 export function getUserMemoryPath() {

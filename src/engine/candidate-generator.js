@@ -1,18 +1,28 @@
-import { coreBangla } from "../data/dictionary/core-bangla.js";
-import { commonCorrections } from "../data/dictionary/common-corrections.js";
-import { loanwords } from "../data/dictionary/loanwords.js";
+import {
+  getDictionaryKeys,
+  loadCandidateDictionary
+} from "./dictionary-loader.js";
 import { getMemoryCorrection } from "./user-memory.js";
-import { getFuzzyKeys, normalizeCandidateKey } from "./normalizer.js";
+import {
+  damerauLevenshtein,
+  getFuzzyKeys,
+  normalizeCandidateKey
+} from "./normalizer.js";
 import { parseWord } from "./parser.js";
+
+const coreBangla = loadCandidateDictionary("core-bangla.tson");
+const loanwords = loadCandidateDictionary("loanwords.tson");
+const commonCorrections = loadCandidateDictionary("corrections.tson");
+const fuzzyCache = new Map();
 
 export function generateCandidates(input, options = {}) {
   const key = normalizeCandidateKey(input);
   const candidates = [];
 
   addCandidate(candidates, getMemoryCorrection(key));
-  addEntries(candidates, coreBangla[key], key);
-  addEntries(candidates, loanwords[key], key);
-  addEntries(candidates, commonCorrections[key], key);
+  addEntries(candidates, coreBangla.get(key), key);
+  addEntries(candidates, loanwords.get(key), key);
+  addEntries(candidates, commonCorrections.get(key), key);
   addFuzzyLoanwordCandidates(candidates, key);
 
   if (options.phoneticFallback !== false) {
@@ -28,25 +38,54 @@ export function generateCandidates(input, options = {}) {
 }
 
 function addFuzzyLoanwordCandidates(candidates, key) {
-  for (const fuzzyKey of getFuzzyKeys(key)) {
-    if (fuzzyKey === key || !loanwords[fuzzyKey]) {
-      continue;
-    }
-
-    addEntries(
-      candidates,
-      loanwords[fuzzyKey].map((entry) => ({
-        ...entry,
-        score: Math.min(Number(entry.score || 0), 5000),
-        source: "fuzzy-loanword",
-        meta: {
-          ...(entry.meta ?? {}),
-          fuzzyKey
-        }
-      })),
-      key
-    );
+  for (const fuzzyKey of getFuzzyLoanwordKeys(key)) {
+    addEntries(candidates, toFuzzyEntries(loanwords.get(fuzzyKey), fuzzyKey), key);
   }
+}
+
+function getFuzzyLoanwordKeys(key) {
+  if (fuzzyCache.has(key)) {
+    return fuzzyCache.get(key);
+  }
+
+  const keys = new Set();
+
+  for (const fuzzyKey of getFuzzyKeys(key)) {
+    if (fuzzyKey !== key && loanwords.has(fuzzyKey)) {
+      keys.add(fuzzyKey);
+    }
+  }
+
+  if (key.length >= 4) {
+    for (const dictionaryKey of getDictionaryKeys("loanwords.tson")) {
+      if (dictionaryKey === key || dictionaryKey.length < 4) {
+        continue;
+      }
+
+      const entries = loanwords.get(dictionaryKey) ?? [];
+      const highConfidence = entries.some((entry) => Number(entry.score) >= 9000);
+
+      if (highConfidence && damerauLevenshtein(key, dictionaryKey, 2) <= 2) {
+        keys.add(dictionaryKey);
+      }
+    }
+  }
+
+  const result = [...keys];
+  fuzzyCache.set(key, result);
+  return result;
+}
+
+function toFuzzyEntries(entries, fuzzyKey) {
+  return (entries ?? []).map((entry) => ({
+    ...entry,
+    score: Math.min(Number(entry.score || 0), 5000),
+    source: "fuzzy-loanword",
+    meta: {
+      ...(entry.meta ?? {}),
+      fuzzyKey
+    }
+  }));
 }
 
 function addEntries(candidates, entries, input) {
@@ -80,4 +119,3 @@ function uniqueCandidates(candidates) {
 
   return [...seen.values()];
 }
-
