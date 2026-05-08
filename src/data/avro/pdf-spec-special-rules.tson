@@ -1,0 +1,10 @@
+# key	value	kind
+t``	ত্	atomic
+`o	অ	accent-prefix
+`a	আ	accent-prefix
+`i	ই	accent-prefix
+`I	ঈ	accent-prefix
+a`	া	accent-suffix
+i`	ি	accent-suffix
+I`	ী	accent-suffix
+o`		accent-suffix

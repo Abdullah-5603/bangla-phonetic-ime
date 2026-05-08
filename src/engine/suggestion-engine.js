@@ -1,4 +1,5 @@
 import { createIncrementalCandidateUpdater } from "./incremental-candidates.js";
+import { resolveAvroMode } from "./avro-compatibility-mode.js";
 
 const PARTIAL_SUGGESTIONS = new Map([
   [
@@ -20,11 +21,12 @@ const PARTIAL_SUGGESTIONS = new Map([
 
 export function createSuggestionEngine(options = {}) {
   const updater = createIncrementalCandidateUpdater(options);
+  const mode = resolveAvroMode(options);
 
   return {
     suggest(buffer) {
       if (!buffer) return [];
-      const partial = PARTIAL_SUGGESTIONS.get(buffer.toLowerCase()) ?? [];
+      const partial = mode === "avro-smart" ? PARTIAL_SUGGESTIONS.get(buffer.toLowerCase()) ?? [] : [];
       const candidates = updater.update(buffer);
       return uniqueSuggestions([...candidates, ...partial]).slice(0, options.limit ?? 5);
     },
@@ -44,4 +46,3 @@ function uniqueSuggestions(candidates) {
 
   return [...seen.values()].sort((a, b) => Number(b.score || 0) - Number(a.score || 0));
 }
-

@@ -1,10 +1,24 @@
 export function formatCompatibilityReport(report) {
   const lines = [
+    `PDF Spec Cases: ${report.passed}/${report.total} passed`,
+    `Case-sensitive Rules: ${report.caseSensitiveRules.passed}/${report.caseSensitiveRules.total} passed`,
+    `Accent Rules: ${report.accentRules.passed}/${report.accentRules.total} passed`,
     `Compatibility Score: ${report.score.toFixed(1)}%`,
-    `Passed: ${report.passed}/${report.total}`,
+    "Known Gaps:"
+  ];
+
+  if (report.knownGaps.length === 0) {
+    lines.push("- none declared");
+  } else {
+    for (const gap of report.knownGaps) {
+      lines.push(`- ${gap}`);
+    }
+  }
+
+  lines.push(
     "",
     "Failed Cases:"
-  ];
+  );
 
   if (report.failedCases.length === 0) {
     lines.push("None");
@@ -19,4 +33,3 @@ export function formatCompatibilityReport(report) {
 
   return lines.join("\n");
 }
-

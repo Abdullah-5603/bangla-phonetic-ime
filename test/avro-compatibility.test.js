@@ -10,9 +10,9 @@ test("Avro compatibility corpus passes", () => {
 });
 
 test("exact Avro edge cases take precedence", () => {
-  assert.equal(transliterate("rri"), "ঋ");
-  assert.equal(transliterate("khuje"), "খুঁজে");
-  assert.equal(transliterate("kSh"), "ক্ষ");
+  assert.equal(transliterate("rri", { mode: "avro-strict" }), "ঋ");
+  assert.equal(transliterate("OI", { mode: "avro-strict" }), "ঐ");
+  assert.equal(transliterate("Sh", { mode: "avro-strict" }), "ষ");
 });
 
 test("compat compare reports pass for known corpus input", () => {
@@ -21,4 +21,3 @@ test("compat compare reports pass for known corpus input", () => {
   assert.equal(result.actual, "ঋ");
   assert.equal(result.passed, true);
 });
-

@@ -4,11 +4,13 @@ import { parsePunctuation } from "./parser.js";
 import { getPhraseCandidatesAt } from "./phrase-resolver.js";
 import { rankCandidates } from "./ranker.js";
 import { tokenize } from "./tokenizer.js";
+import { resolveAvroMode } from "./avro-compatibility-mode.js";
 
 const DEFAULT_CANDIDATE_LIMIT = 5;
 
 export function buildCandidateGraph(input, options = {}) {
-  const normalized = normalizeInput(input);
+  const mode = resolveAvroMode(options);
+  const normalized = mode === "avro-strict" ? String(input ?? "") : normalizeInput(input);
   const tokens = tokenize(normalized);
   const edges = new Map();
   const candidateLimit = Number(options.candidateLimit || DEFAULT_CANDIDATE_LIMIT);
@@ -18,9 +20,12 @@ export function buildCandidateGraph(input, options = {}) {
     const nodes = [];
 
     if (token.type === "word") {
-      const phraseCandidates = getPhraseCandidatesAt(tokens, index)
-        .filter((candidate) => Number(candidate.meta?.tokenLength || 0) > 1)
-        .slice(0, candidateLimit);
+      const phraseCandidates =
+        mode === "avro-smart"
+          ? getPhraseCandidatesAt(tokens, index)
+              .filter((candidate) => Number(candidate.meta?.tokenLength || 0) > 1)
+              .slice(0, candidateLimit)
+          : [];
 
       for (const candidate of phraseCandidates) {
         nodes.push(toNode(candidate, index, Number(candidate.meta.tokenLength), true));
@@ -87,4 +92,3 @@ function uniqueNodes(nodes) {
 
   return [...seen.values()].sort((a, b) => b.score - a.score);
 }
-

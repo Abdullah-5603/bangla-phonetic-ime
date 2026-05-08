@@ -7,7 +7,7 @@ import {
 
 export function transliterateAvroCompatible(input) {
   const exact = getAvroCandidate(input);
-  return exact?.text ?? transliterate(input, { avroCompatibility: true });
+  return exact?.text ?? transliterate(input, { mode: "avro-strict" });
 }
 
 export function getAvroCompatibilityCandidates(input) {
@@ -28,4 +28,3 @@ export function compareWithAvro(input, expected) {
 function getExpectedFromCorpus(input) {
   return loadAvroCompatibilityCorpus().find((item) => item.input === input)?.expected ?? null;
 }
-

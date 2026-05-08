@@ -1,71 +1,46 @@
-# Avro Compatibility
+# Avro PDF-Spec Compatibility
 
 ## Goal
 
-This project aims for full behavioral compatibility with Avro Keyboard phonetic
-typing rules while keeping a Linux-first, modular runtime suitable for IBus and
-future Fcitx adapters.
+`v0.0.9` prioritizes **official Avro Phonetic PDF-spec behavior** over custom or fuzzy transliteration rules.  
+The engine is Linux/Arch/Omarchy-focused, fully offline, and does not copy official Avro UI/branding/assets.
 
-The project does not clone Avro UI, assets, or branding.
+## Modes
 
-## Current Status
+- `avro-strict`: exact PDF-spec transliteration only (case-sensitive, no fuzzy override)
+- `avro-smart`: PDF-spec output + optional dictionary/phrase suggestions (exact output remains visible as `avro-pdf`)
 
-v0.0.8 includes a curated Avro compatibility seed corpus and exact compatibility
-rules for common and high-priority cases:
+## Source Data
 
-- basic words such as `ami`, `tumi`, `bangla`
-- conjunct cases such as `shikkha`, `ksh`, `kSh`, `kkh`
-- vowel case `rri => ঋ`
-- complex seeded behavior `khuje => খুঁজে`
-- loanword phrases such as `pre order`
+The PDF-spec layer is encoded in:
 
-Current compatibility command:
+```txt
+src/data/avro/pdf-spec-vowels.tson
+src/data/avro/pdf-spec-consonants.tson
+src/data/avro/pdf-spec-kars.tson
+src/data/avro/pdf-spec-special-rules.tson
+src/data/avro/pdf-spec-fola.tson
+src/data/avro/pdf-spec-compatibility-corpus.tson
+```
+
+## Compatibility Command
 
 ```sh
 npm run compatibility
 ```
 
-Current seed result:
+Current report format:
 
 ```txt
-Compatibility Score: 100.0%
-Passed: 14/14
+PDF Spec Cases: X/Y passed
+Case-sensitive Rules: X/Y passed
+Accent Rules: X/Y passed
+Compatibility Score: Z%
+Known Gaps: ...
 ```
 
-## Known Differences
+## Known Gaps
 
-- The full official Avro rule table has not yet been ported.
-- Autocorrect coverage is a small curated seed.
-- Some rare conjuncts and legacy edge cases are not represented yet.
-- Candidate ordering is engine-specific outside exact compatibility rules.
-- IBus support is prototype-only and not production desktop integration.
-
-## Unsupported Edge Cases
-
-- Complete Avro dictionary/autocorrect behavior.
-- Full punctuation behavior parity.
-- Full old Avro conjunct edge cases.
-- Desktop candidate-window pagination behavior.
-
-## Compatibility Test Status
-
-Compatibility corpus:
-
-```txt
-src/data/avro/avro-compatibility-corpus.tson
-```
-
-Compatibility modules:
-
-```txt
-src/adapters/compatibility/
-```
-
-Compatibility tooling:
-
-```txt
-tools/compatibility-check.js
-tools/compare-with-avro.js
-tools/replay-avro-corpus.js
-tools/generate-compatibility-report.js
-```
+- Fola/jukto-consonant edge behavior is not fully ported from the full upstream Avro stack.
+- Coverage is based on manually encoded PDF-accessible examples and regressions.
+- Desktop IME UI behavior (IBus/Fcitx production UX) remains outside v0.0.9 scope.

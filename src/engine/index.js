@@ -4,6 +4,7 @@ import { getPhraseCandidatesAt } from "./phrase-resolver.js";
 import { rankCandidates } from "./ranker.js";
 import { searchSentence, transliterateSentence } from "./transliterate.js";
 import { tokenize } from "./tokenizer.js";
+import { resolveAvroMode } from "./avro-compatibility-mode.js";
 
 export { learnCorrection } from "./user-memory.js";
 export { learn } from "./online-learning.js";
@@ -19,27 +20,53 @@ export function transliterate(input, options = {}) {
 }
 
 export function getCandidates(input, options = {}) {
-  const normalized = normalizeInput(input);
+  const mode = resolveAvroMode(options);
+  const rawInput = String(input ?? "").trim();
+  const normalized = mode === "avro-strict" ? rawInput : normalizeInput(rawInput);
   const tokens = tokenize(normalized);
-  const phraseCandidates = getPhraseCandidatesAt(tokens, 0).filter(
-    (candidate) => Number(candidate.meta?.tokenLength || 0) === tokens.length
-  );
+  const phraseCandidates =
+    mode === "avro-smart"
+      ? getPhraseCandidatesAt(tokens, 0).filter(
+          (candidate) => Number(candidate.meta?.tokenLength || 0) === tokens.length
+        )
+      : [];
 
   if (phraseCandidates.length > 0) {
     return phraseCandidates;
   }
 
   if (tokens.length === 1 && tokens[0].type === "word") {
-    return rankCandidates(generateCandidates(tokens[0].value, options), {
+    const ranked = rankCandidates(generateCandidates(tokens[0].value, options), {
       exactInput: tokens[0].value
     });
+    if (mode !== "avro-smart") {
+      return ranked;
+    }
+
+    const strictText = transliterateSentence(rawInput, { ...options, mode: "avro-strict" });
+    if (ranked.some((candidate) => candidate.text === strictText)) {
+      return ranked;
+    }
+
+    return rankCandidates(
+      [
+        ...ranked,
+        {
+          text: strictText,
+          score: 2400,
+          source: "avro-pdf",
+          meta: { input: rawInput, mode: "avro-strict" }
+        }
+      ],
+      { exactInput: tokens[0].value }
+    );
   }
 
   const candidate = {
-    text: transliterateSentence(normalized, options),
+    text: transliterateSentence(mode === "avro-strict" ? input : normalized, options),
     score: 1000,
-    source: "composed",
-    meta: { input: normalized }
+    source: mode === "avro-strict" ? "avro-pdf" : "composed",
+    meta: { input: normalized, mode }
   };
 
   return [candidate];

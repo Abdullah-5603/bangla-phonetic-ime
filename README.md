@@ -1,210 +1,88 @@
 # Bangla Phonetic IME
 
-A Linux-focused Bangla phonetic transliteration engine in Node.js, aiming for
-Avro Keyboard compatible phonetic behavior with a cleaner CLI-first and
-IME-ready runtime.
+Linux-focused Bangla phonetic transliteration engine (Node.js) with Avro-compatible behavior.
 
-Current version: `v0.0.8`
+Current version: `v0.0.9`
 
-This project is not inventing a new phonetic system. The goal is to make typing
-habits learned from Avro Keyboard on Windows and Android behave the same, or as
-closely as possible, while keeping the engine modular and Linux-friendly.
+## v0.0.9 Focus
 
-This release is still engine and CLI focused. It includes an IBus prototype
-boundary, but no GTK, Qt, Electron, Tauri, tray app, or polished desktop UI.
+- Implements Avro Phonetic behavior from PDF-spec TSON data.
+- Separates exact transliteration from smart suggestions.
+- Preserves case-sensitive rules (`O`, `OI`, `OU`, `T`, `D`, `N`, `Sh`, `S`, `Ng`, `NG`).
+- Disables legacy custom phonetic table as primary parser.
+- Keeps streaming/session architecture and IBus prototype boundary.
 
-## v0.0.8 Features
+## Modes
 
-- Avro-compatible deterministic rule priority.
-- Avro compatibility corpus and compatibility score tooling.
-- Avro rule, exception, vowel, conjunct, autocorrect, and known-behavior TSON seed files.
-- Compatibility modules for rule loading, validation, scoring, and drift checks.
-- Prototype IBus adapter boundary with Node bridge, session manager, keymap, preedit sync, and candidate window state.
-- Adapter-neutral candidate, preedit, commit, and session protocols.
-- Wayland/X11 desktop environment detection helpers.
-- Arch/Omarchy packaging groundwork.
-- CLI commands for compatibility checks and desktop/IBus status.
+- `avro-strict` (CLI default): exact PDF-spec output only.
+- `avro-smart`: PDF-spec output plus dictionary/phrase suggestions.
 
-## Avro Compatibility Goal
-
-The transliteration pipeline now gives known Avro-compatible behavior the
-highest priority:
-
-1. exact Avro compatibility rules
-2. Avro exception behavior
-3. user corrections
-4. compatibility-safe contextual ranking
-5. fuzzy fallback
-
-Fuzzy matching and statistical ranking should not override known Avro behavior.
-See `COMPATIBILITY.md` for compatibility status, known differences, and the
-current test coverage.
-
-## Basic Usage
+## CLI
 
 ```sh
-npm install
-npm start -- "ami bangla likhi"
+node src/cli.js --mode avro-strict "colO zay, ghure asshi"
+node src/cli.js --mode avro-smart "colO zay, ghure asshi"
 ```
 
-Output:
-
-```txt
-আমি বাংলা লিখি
-```
-
-Interactive CLI:
+Interactive:
 
 ```sh
 npm run dev
 ```
 
-Useful commands:
+Commands:
 
 ```txt
-:candidates order
-:beam pre order korbo
-:explain pri odrer
-:stream
-:compat rri
+:mode avro-strict
+:mode avro-smart
+:avro input
+:smart input
+:rule input
 :compat-report
-:ibus-status
-:desktop
-:q
 ```
 
-## Compatibility Tools
-
-Run the Avro compatibility corpus:
+## Compatibility
 
 ```sh
 npm run compatibility
 ```
 
-Replay or compare compatibility data:
-
-```sh
-node tools/replay-avro-corpus.js
-node tools/compare-with-avro.js
-node tools/generate-compatibility-report.js
-```
-
-Example interactive check:
+Compatibility corpus and rule tables are under:
 
 ```txt
-> :compat rri
-Expected (Avro): ঋ
-Actual: ঋ
-Compatibility: PASS
+src/data/avro/pdf-spec-*.tson
 ```
 
-## IBus Prototype
-
-The IBus code is intentionally isolated from the engine core:
-
-```txt
-src/adapters/ibus/
-src/adapters/protocol/
-```
-
-The current adapter is prototype groundwork. It defines bridge/session/preedit
-and candidate synchronization boundaries, but it is not production-ready desktop
-integration.
-
-Check adapter status:
-
-```sh
-npm run ibus:status
-```
-
-## Data Format
-
-All project-owned runtime data uses `.tson`:
-
-```txt
-src/data/avro/*.tson
-src/data/dictionary/*.tson
-src/data/corpus/*.tson
-src/data/linux/*.tson
-src/data/profiles/*.tson
-src/data/user/*.tson
-```
-
-`package.json` remains the npm-required metadata exception.
-
-Validate TSON files:
-
-```sh
-npm run validate:tson
-```
-
-## Evaluation
-
-```sh
-npm run evaluate
-```
-
-Reports total, top-1/top-3, regression, typo recovery, phrase, loanword,
-sentence, streaming, and language-model metrics.
-
-## Benchmark
+## Benchmarks
 
 ```sh
 npm run benchmark
 ```
 
-Reports full-sentence latency, per-key streaming latency, suggestion latency,
-commit latency, cache statistics, memory delta, and language-model overhead.
+Reports strict and smart mode throughput/latency separately.
 
-## Tests
+## Validation and Tests
 
 ```sh
 npm test
+npm run evaluate
+npm run compatibility
+npm run validate:tson
 ```
 
-## Packaging Status
+## Data Format
 
-Prototype packaging files are included:
+Project runtime data uses `.tson` under `src/`, `test/`, and `tools/` (with npm-required `package.json` exception).
 
-```txt
-packaging/PKGBUILD
-packaging/arch-install.sh
-packaging/omarchy-install.sh
-packaging/ibus-register.sh
-packaging/uninstall.sh
-```
+## Scope Notes
 
-They are groundwork only. Real AUR/package repository testing is planned for a
-future release.
+- Fully offline.
+- No cloud APIs.
+- No ML frameworks.
+- No GUI integration in this release.
+- IBus/Fcitx production integration is intentionally deferred.
 
-## Wayland/X11 Notes
+## Attribution
 
-The project can detect desktop session context and IBus availability for status
-reporting. It does not yet install or activate a system input method.
-
-## Known Limitations
-
-- The Avro compatibility corpus is still small and manually curated.
-- Full upstream Avro/ibus-avro rule tables have not been completely ported.
-- The IBus adapter is a prototype boundary, not a production engine.
-- Candidate pagination and rich candidate window behavior are not implemented.
-- Cursor movement support remains limited.
-- Arch/Omarchy packaging has not been validated in a real package repository.
-
-## Future Roadmap
-
-v0.0.9:
-
-1. Fcitx5 prototype adapter
-2. Real desktop testing
-3. Candidate pagination
-4. Cursor movement support
-5. IME persistence
-6. Package repository preparation
-7. Arch/AUR testing
-
-## License And Attribution
-
-The project is inspired by Avro Keyboard and ibus-avro behavior. Preserve
-MPL-compatible attribution when Avro-derived rules or datasets are referenced or
-ported. See `NOTICE.md`, `LICENSE-AVRO.md`, and `COMPATIBILITY.md`.
+Behavior target is Avro/ibus-avro compatibility.  
+See `NOTICE.md`, `LICENSE-AVRO.md`, and `COMPATIBILITY.md`.

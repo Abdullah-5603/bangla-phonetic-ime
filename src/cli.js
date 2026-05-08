@@ -16,6 +16,8 @@ import {
   setProfile,
   transliterate
 } from "./engine/index.js";
+import { explainAvroRules, transliterateAvroSpec } from "./engine/avro-spec-engine.js";
+import { resolveAvroMode } from "./engine/avro-compatibility-mode.js";
 import { clearMemory, loadMemory } from "./engine/user-memory.js";
 import {
   formatEvaluationReport,
@@ -37,33 +39,36 @@ import { getIbusStatus } from "./adapters/ibus/bridge.js";
 import { detectDesktopEnvironment } from "./adapters/ibus/config.js";
 
 export async function main(argv = process.argv.slice(2)) {
+  const parsed = parseCliArgs(argv);
+
   if (argv.includes("--help") || argv.includes("-h")) {
     printHelp();
     return;
   }
 
   if (argv.includes("--interactive") || argv.includes("-i")) {
-    await runInteractive({ yes: argv.includes("--yes") });
+    await runInteractive({ yes: argv.includes("--yes"), mode: parsed.mode });
     return;
   }
 
   if (argv.includes("--stream")) {
-    runStreamSimulation(argv.filter((arg) => arg !== "--stream" && arg !== "--yes").join(" "));
+    runStreamSimulation(parsed.text, { mode: parsed.mode });
     return;
   }
 
-  const text = argv.filter((arg) => arg !== "--yes").join(" ");
+  const text = parsed.text;
   if (!text) {
     printHelp();
     return;
   }
 
-  console.log(transliterate(text));
+  console.log(transliterate(text, { mode: parsed.mode }));
 }
 
 async function runInteractive(options = {}) {
   const rl = createInterface({ input, output });
   let streamSession = null;
+  let mode = resolveAvroMode(options);
 
   try {
     while (true) {
@@ -85,12 +90,12 @@ async function runInteractive(options = {}) {
       }
 
       if (command.startsWith(":candidates ")) {
-        printCandidates(command.slice(":candidates ".length));
+        printCandidates(command.slice(":candidates ".length), { mode });
         continue;
       }
 
       if (command.startsWith(":beam ")) {
-        printBeam(command.slice(":beam ".length));
+        printBeam(command.slice(":beam ".length), { mode });
         continue;
       }
 
@@ -157,6 +162,27 @@ async function runInteractive(options = {}) {
         continue;
       }
 
+      if (command.startsWith(":mode ")) {
+        mode = resolveAvroMode({ mode: command.slice(":mode ".length).trim() });
+        console.log(`mode: ${mode}`);
+        continue;
+      }
+
+      if (command.startsWith(":avro ")) {
+        console.log(transliterateAvroSpec(command.slice(":avro ".length), { mode: "avro-strict" }).text);
+        continue;
+      }
+
+      if (command.startsWith(":smart ")) {
+        printSmart(command.slice(":smart ".length));
+        continue;
+      }
+
+      if (command.startsWith(":rule ")) {
+        printRule(command.slice(":rule ".length));
+        continue;
+      }
+
       if (command === ":compat-report") {
         console.log(formatCompatibilityReport(validateAvroCompatibility()));
         continue;
@@ -208,15 +234,15 @@ async function runInteractive(options = {}) {
         continue;
       }
 
-      console.log(transliterate(line));
+      console.log(transliterate(line, { mode }));
     }
   } finally {
     rl.close();
   }
 }
 
-function runStreamSimulation(text) {
-  const session = createStreamingSession();
+function runStreamSimulation(text, options = {}) {
+  const session = createStreamingSession(options);
 
   for (const char of text) {
     const key = char === " " ? "SPACE" : char;
@@ -283,8 +309,8 @@ function printLatency(stats) {
   console.log(`commit avg: ${stats.commit.avg.toFixed(3)} ms`);
 }
 
-function printBeam(inputText) {
-  const result = searchSentence(inputText, { beamWidth: 5 });
+function printBeam(inputText, options = {}) {
+  const result = searchSentence(inputText, { beamWidth: 5, ...options });
 
   if (result.paths.length === 0) {
     console.log("No beam paths.");
@@ -296,8 +322,8 @@ function printBeam(inputText) {
   });
 }
 
-function printCandidates(inputText) {
-  const candidates = getCandidates(inputText);
+function printCandidates(inputText, options = {}) {
+  const candidates = getCandidates(inputText, options);
 
   if (candidates.length === 0) {
     console.log("No candidates.");
@@ -412,6 +438,36 @@ function printCompatibility(inputText) {
   console.log(`Compatibility: ${result.passed === null ? "UNKNOWN" : result.passed ? "PASS" : "FAIL"}`);
 }
 
+function printSmart(inputText) {
+  const exact = transliterateAvroSpec(inputText, { mode: "avro-strict" }).text;
+  const smartCandidates = getCandidates(inputText, { mode: "avro-smart" }).slice(0, 5);
+  console.log(`Exact Avro: ${exact}`);
+  console.log("Smart candidates:");
+  const printedExact = new Set();
+
+  for (const candidate of smartCandidates) {
+    const source = candidate.source ?? "unknown";
+    console.log(`- ${candidate.text} source: ${source}`);
+    printedExact.add(candidate.text);
+  }
+
+  if (!printedExact.has(exact)) {
+    console.log(`- ${exact} source: avro-pdf`);
+  }
+}
+
+function printRule(inputText) {
+  const matches = explainAvroRules(inputText);
+  if (matches.length === 0) {
+    console.log("No PDF rule matched.");
+    return;
+  }
+
+  const first = matches[0];
+  console.log(`Matched: ${first.key} -> ${first.value || "(empty)"}`);
+  console.log(`Source: ${first.source}`);
+}
+
 function printIbusStatus() {
   const status = getIbusStatus();
   console.log(`bridge state: ${status.bridge}`);
@@ -509,12 +565,38 @@ Interactive commands:
   :rebuild-status           Show background rebuild state
   :compat input             Compare with Avro compatibility corpus
   :compat-report            Show Avro compatibility summary
+  :mode avro-strict         Switch to strict PDF-spec mode
+  :mode avro-smart          Switch to smart mode (PDF base + suggestions)
+  :avro input               Show exact Avro PDF transliteration only
+  :smart input              Show exact Avro plus smart candidates
+  :rule input               Show first matched PDF rule for input
   :ibus-status              Show IBus prototype adapter status
   :desktop                  Show Wayland/X11 environment info
   :stream                   Enter streaming simulation mode
   :memory                   Show saved corrections
   :clear-memory             Clear saved corrections after confirmation
   :clear-memory --yes       Clear saved corrections without confirmation`);
+}
+
+function parseCliArgs(argv) {
+  const args = [...argv];
+  let mode = "avro-strict";
+  const passthrough = [];
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--mode") {
+      mode = resolveAvroMode({ mode: args[index + 1] });
+      index += 1;
+      continue;
+    }
+    passthrough.push(arg);
+  }
+
+  return {
+    mode,
+    text: passthrough.filter((arg) => arg !== "--yes" && arg !== "--stream").join(" ")
+  };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

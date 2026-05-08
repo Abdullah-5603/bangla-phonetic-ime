@@ -1,0 +1,20 @@
+# input	expected	category
+OI	ঐ	case-vowel
+OU	ঔ	case-vowel
+O	ও	case-vowel
+Sh	ষ	case-consonant
+S	শ	case-consonant
+Ng	ঙ	case-consonant
+NG	ঞ	case-consonant
+T	ট	case-consonant
+D	ড	case-consonant
+N	ণ	case-consonant
+`o	অ	accent
+`a	আ	accent
+`i	ই	accent
+`I	ঈ	accent
+a`	া	accent
+i`	ি	accent
+I`	ী	accent
+o`		accent
+t``	ত্	special

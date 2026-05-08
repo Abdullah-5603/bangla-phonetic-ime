@@ -4,6 +4,7 @@ import { getPhraseCandidatesAt } from "./phrase-resolver.js";
 import { rankCandidates } from "./ranker.js";
 import { transliterateSentence } from "./transliterate.js";
 import { tokenize } from "./tokenizer.js";
+import { resolveAvroMode } from "./avro-compatibility-mode.js";
 
 export function createIncrementalCandidateUpdater(options = {}) {
   const cache = options.cache;
@@ -52,11 +53,15 @@ function ensureCandidateShape(buffer, candidates) {
 }
 
 function getStreamingCandidates(input, options = {}) {
-  const normalized = normalizeInput(input);
+  const mode = resolveAvroMode(options);
+  const normalized = mode === "avro-strict" ? String(input ?? "") : normalizeInput(input);
   const tokens = tokenize(normalized);
-  const phraseCandidates = getPhraseCandidatesAt(tokens, 0).filter(
-    (candidate) => Number(candidate.meta?.tokenLength || 0) === tokens.length
-  );
+  const phraseCandidates =
+    mode === "avro-smart"
+      ? getPhraseCandidatesAt(tokens, 0).filter(
+          (candidate) => Number(candidate.meta?.tokenLength || 0) === tokens.length
+        )
+      : [];
 
   if (phraseCandidates.length > 0) return phraseCandidates;
 

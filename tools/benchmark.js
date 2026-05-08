@@ -24,29 +24,24 @@ const samples = [
 
 export function runBenchmark(options = {}) {
   const iterations = Number(options.iterations || 1000);
+  const strict = benchmarkMode("avro-strict", iterations);
+  const smart = benchmarkMode("avro-smart", iterations);
   const startMemory = process.memoryUsage().heapUsed;
-  const start = performance.now();
-
-  for (let index = 0; index < iterations; index += 1) {
-    transliterate(samples[index % samples.length], { beamWidth: 5 });
-  }
-
-  const elapsedMs = performance.now() - start;
   const beamStart = performance.now();
 
   for (const sample of samples) {
-    searchSentence(sample, { beamWidth: 5 });
+    searchSentence(sample, { beamWidth: 5, mode: "avro-smart" });
   }
 
   const beamMs = performance.now() - beamStart;
   const lmStart = performance.now();
   for (const sample of samples) {
-    getLanguageScore(transliterate(sample).split(/\s+/));
+    getLanguageScore(transliterate(sample, { mode: "avro-smart" }).split(/\s+/));
   }
   const lmMs = performance.now() - lmStart;
   const profileStart = performance.now();
   for (const sample of samples) {
-    getProfileBoost(transliterate(sample).split(/\s+/));
+    getProfileBoost(transliterate(sample, { mode: "avro-smart" }).split(/\s+/));
   }
   const profileMs = performance.now() - profileStart;
   const rebuildStart = performance.now();
@@ -68,9 +63,11 @@ export function runBenchmark(options = {}) {
 
   return {
     iterations,
-    elapsedMs,
-    transliterationsPerSecond: (iterations / elapsedMs) * 1000,
-    averageLatencyMs: elapsedMs / iterations,
+    strict,
+    smart,
+    elapsedMs: smart.elapsedMs,
+    transliterationsPerSecond: smart.transliterationsPerSecond,
+    averageLatencyMs: smart.averageLatencyMs,
     memoryDeltaKb: (endMemory - startMemory) / 1024,
     beamSearchCostMs: beamMs / samples.length,
     cacheStats: getCacheStats(),
@@ -90,10 +87,25 @@ export function runBenchmark(options = {}) {
   };
 }
 
+function benchmarkMode(mode, iterations) {
+  const start = performance.now();
+  for (let index = 0; index < iterations; index += 1) {
+    transliterate(samples[index % samples.length], { beamWidth: 5, mode });
+  }
+  const elapsedMs = performance.now() - start;
+  return {
+    elapsedMs,
+    transliterationsPerSecond: (iterations / elapsedMs) * 1000,
+    averageLatencyMs: elapsedMs / iterations
+  };
+}
+
 export function formatBenchmarkReport(report) {
   return [
-    `Transliterations/sec: ${report.transliterationsPerSecond.toFixed(1)}`,
-    `Average latency: ${report.averageLatencyMs.toFixed(3)} ms`,
+    `Strict transliterations/sec: ${report.strict.transliterationsPerSecond.toFixed(1)}`,
+    `Strict average latency: ${report.strict.averageLatencyMs.toFixed(3)} ms`,
+    `Smart transliterations/sec: ${report.smart.transliterationsPerSecond.toFixed(1)}`,
+    `Smart average latency: ${report.smart.averageLatencyMs.toFixed(3)} ms`,
     `Memory delta: ${report.memoryDeltaKb.toFixed(1)} KB`,
     `Beam search cost: ${report.beamSearchCostMs.toFixed(3)} ms/sample`,
     `Typo-learning overhead: ${report.typoLearningOverheadMs.toFixed(3)} ms`,

@@ -7,7 +7,7 @@ test("generateCandidates returns loanword and phonetic candidates", () => {
   const candidates = generateCandidates("order");
 
   assert.equal(candidates[0].text, "অর্ডার");
-  assert.ok(candidates.some((candidate) => candidate.source === "phonetic"));
+  assert.ok(candidates.some((candidate) => candidate.source === "avro-pdf"));
 });
 
 test("getCandidates ranks order loanword first", () => {
@@ -17,4 +17,3 @@ test("getCandidates ranks order loanword first", () => {
 test("getCandidates ranks mixed-case correction first", () => {
   assert.equal(getCandidates("orrDar")[0].text, "অর্ডার");
 });
-

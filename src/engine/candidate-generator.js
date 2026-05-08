@@ -6,13 +6,13 @@ import { getMemoryCorrection } from "./user-memory.js";
 import { getTypoCandidates, getTypoBoost } from "./typo-learner.js";
 import { createLRUCache } from "./cache.js";
 import { canonicalizeTypo } from "./typo-canonicalizer.js";
-import { getAvroCandidate } from "../adapters/compatibility/avro-rule-loader.js";
 import {
   damerauLevenshtein,
   getFuzzyKeys,
   normalizeCandidateKey
 } from "./normalizer.js";
 import { parseWord } from "./parser.js";
+import { resolveAvroMode } from "./avro-compatibility-mode.js";
 
 const coreBangla = loadCandidateDictionary("core-bangla.tson");
 const loanwords = loadCandidateDictionary("loanwords.tson");
@@ -21,8 +21,9 @@ const fuzzyCache = new Map();
 const candidateCache = createLRUCache("candidate", 1000);
 
 export function generateCandidates(input, options = {}) {
-  const key = normalizeCandidateKey(input);
-  const cacheKey = `${key}:${options.phoneticFallback !== false}`;
+  const mode = resolveAvroMode(options);
+  const key = mode === "avro-strict" ? String(input ?? "") : normalizeCandidateKey(input);
+  const cacheKey = `${mode}:${key}:${options.phoneticFallback !== false}`;
   const cached = candidateCache.get(cacheKey);
 
   if (cached !== undefined) {
@@ -30,22 +31,38 @@ export function generateCandidates(input, options = {}) {
   }
 
   const candidates = [];
+  const exactCandidate = {
+    text: parseWord(key, { useDictionary: false }),
+    score: mode === "avro-strict" ? 50000 : 2500,
+    source: "avro-pdf",
+    meta: { input: key, mode }
+  };
 
-  addCandidate(candidates, getAvroCandidate(key));
-  addCandidate(candidates, getMemoryCorrection(key));
-  addEntries(candidates, coreBangla.get(key), key);
-  addEntries(candidates, loanwords.get(key), key);
-  addEntries(candidates, commonCorrections.get(key), key);
-  addTypoCandidates(candidates, key);
-  addCanonicalTypoCandidate(candidates, key);
-  addFuzzyLoanwordCandidates(candidates, key);
+  if (mode === "avro-strict") {
+    addCandidate(candidates, exactCandidate);
+  }
 
-  if (options.phoneticFallback !== false) {
+  if (mode === "avro-smart") {
+    addCandidate(candidates, getMemoryCorrection(normalizeCandidateKey(input)));
+    addEntries(candidates, coreBangla.get(normalizeCandidateKey(input)), normalizeCandidateKey(input));
+    addEntries(candidates, loanwords.get(normalizeCandidateKey(input)), normalizeCandidateKey(input));
+    addEntries(
+      candidates,
+      commonCorrections.get(normalizeCandidateKey(input)),
+      normalizeCandidateKey(input)
+    );
+    addTypoCandidates(candidates, normalizeCandidateKey(input));
+    addCanonicalTypoCandidate(candidates, normalizeCandidateKey(input));
+    addFuzzyLoanwordCandidates(candidates, normalizeCandidateKey(input));
+    addCandidate(candidates, exactCandidate);
+  }
+
+  if (mode === "avro-smart" && options.phoneticFallback !== false) {
     addCandidate(candidates, {
-      text: parseWord(key, { useDictionary: false }),
+      text: parseWord(normalizeCandidateKey(input), { useDictionary: false }),
       score: 1200,
       source: "phonetic",
-      meta: { input: key }
+      meta: { input: normalizeCandidateKey(input) }
     });
   }
 
