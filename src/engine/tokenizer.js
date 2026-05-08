@@ -1,6 +1,7 @@
 const WORD_RE = /^[A-Za-z]+$/;
 const NUMBER_RE = /^[0-9]+$/;
 const WHITESPACE_RE = /^\s+$/;
+const PUNCTUATION_RE = /^[.,!?;:'"()\-]+$/;
 
 export function tokenize(input) {
   const tokens = [];
@@ -28,7 +29,8 @@ function getCharType(char) {
   if (/[A-Za-z]/.test(char)) return "word";
   if (/[0-9]/.test(char)) return "number";
   if (/\s/.test(char)) return "space";
-  return "punctuation";
+  if (/[.,!?;:'"()\-]/.test(char)) return "punctuation";
+  return "symbol";
 }
 
 export function isWordToken(token) {
@@ -43,3 +45,6 @@ export function isWhitespaceToken(token) {
   return WHITESPACE_RE.test(token.value);
 }
 
+export function isPunctuationToken(token) {
+  return PUNCTUATION_RE.test(token.value);
+}

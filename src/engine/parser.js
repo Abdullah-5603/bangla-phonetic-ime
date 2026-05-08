@@ -3,8 +3,7 @@ import {
   consonantRules,
   punctuationMap,
   vowelRules
-} from "../data/avro-rules.js";
-import { dictionary } from "../data/dictionary.js";
+} from "../data/rules/phonetic-rules.js";
 
 const sortedVowels = sortRules(vowelRules);
 const sortedConsonants = sortRules(consonantRules);
@@ -12,10 +11,6 @@ const sortedConsonants = sortRules(consonantRules);
 export function parseWord(word, options = {}) {
   const source = String(word ?? "");
   const normalized = source.toLowerCase();
-
-  if (options.useDictionary !== false && dictionary.has(normalized)) {
-    return dictionary.get(normalized);
-  }
 
   let output = "";
   let index = 0;
@@ -85,4 +80,3 @@ function shouldJoinConsonants(current, next) {
   if (next.value === "ং") return false;
   return true;
 }
-

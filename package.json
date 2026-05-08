@@ -1,6 +1,6 @@
 {
   "name": "bangla-phonetic-ime",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Terminal-only MVP for an Avro-like Bangla phonetic typing engine.",
   "type": "module",
   "bin": {

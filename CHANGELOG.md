@@ -2,6 +2,40 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.2 - 2026-05-08
+
+Refactored the MVP into a candidate-based terminal Bangla phonetic engine.
+
+### Added
+
+- Candidate generation pipeline with ranked candidate objects.
+- Phrase resolver with longest-match-first phrase overrides.
+- Core Bangla dictionary, loanword dictionary, phrase dictionary, and common corrections.
+- User correction memory stored in `src/data/user/user-dictionary.json`.
+- Public `learnCorrection(input, output)` API.
+- Interactive CLI commands:
+  - `:candidates input`
+  - `:fix input = output`
+  - `:memory`
+  - `:clear-memory`
+- Light fuzzy loanword lookup for cases such as `orrDar`, `ordar`, and `order`.
+- Tests for normalizer, candidate generator, ranker, phrase resolver, and transliteration.
+
+### Changed
+
+- Updated package version to `0.0.2`.
+- Replaced the direct dictionary-first transliteration flow with:
+  normalize, tokenize, phrase resolve, user memory, candidate generation, ranking, fallback parser.
+- Moved rule data into `src/data/rules/`.
+- Moved dictionary data into `src/data/dictionary/`.
+- Updated README for v0.0.2 architecture and CLI usage.
+
+### Known Limitations
+
+- Still CLI-only; no IBus, Fcitx5, Wayland, GUI, tray, or system input method integration.
+- Fuzzy matching remains conservative and deterministic.
+- Candidate ranking is not yet deeply contextual.
+
 ## v0.0.1 - 2026-05-08
 
 Initial terminal-only MVP release for the Bangla phonetic IME.
