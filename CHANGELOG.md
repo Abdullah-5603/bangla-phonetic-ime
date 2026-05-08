@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.7 - 2026-05-08
+
+Streaming composition and IME-readiness release.
+
+### Added
+
+- Streaming session API via `createStreamingSession()`.
+- Composition buffer for roman input, committed text, and simple cursor state.
+- Suggestion engine for partial input.
+- Incremental candidate updater with session-local cache support.
+- Preedit manager and commit manager.
+- Key event normalizer for adapter-neutral key event objects.
+- Latency monitor for processKey, suggestion, candidate, preedit, and commit timing.
+- IME contract module with adapter-neutral session APIs.
+- CLI `--stream` simulation mode.
+- Interactive `:stream` mode with `:candidates`, `:select`, and `:latency`.
+- Streaming evaluation corpus and streaming accuracy metrics.
+- Benchmark metrics for per-key latency and session memory behavior.
+
+### Changed
+
+- Updated package version to `0.0.7`.
+- Expanded language-model, bigram, trigram, and quadgram TSON seed data.
+- Public API now exports `createStreamingSession()` and `createInputSession()`.
+
+### Known Limitations
+
+- This is still a terminal simulation, not a system IME.
+- Cursor movement is intentionally minimal.
+- Candidate window mapping is deferred to a future adapter release.
+
 ## v0.0.6 - 2026-05-08
 
 Probabilistic language-aware ranking and IME boundary release.

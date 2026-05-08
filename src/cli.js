@@ -4,6 +4,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import {
   getCandidates,
+  createStreamingSession,
   getLanguageBreakdown,
   getLanguageModelStats,
   getProfile,
@@ -41,6 +42,11 @@ export async function main(argv = process.argv.slice(2)) {
     return;
   }
 
+  if (argv.includes("--stream")) {
+    runStreamSimulation(argv.filter((arg) => arg !== "--stream" && arg !== "--yes").join(" "));
+    return;
+  }
+
   const text = argv.filter((arg) => arg !== "--yes").join(" ");
   if (!text) {
     printHelp();
@@ -52,11 +58,22 @@ export async function main(argv = process.argv.slice(2)) {
 
 async function runInteractive(options = {}) {
   const rl = createInterface({ input, output });
+  let streamSession = null;
 
   try {
     while (true) {
-      const line = await rl.question("> ");
+      const line = await rl.question(streamSession ? "stream> " : "> ");
       const command = line.trim();
+
+      if (streamSession) {
+        if (command === ":exit") {
+          streamSession = null;
+          continue;
+        }
+
+        handleStreamLine(streamSession, command);
+        continue;
+      }
 
       if (command === ":q" || command === ":quit") {
         break;
@@ -130,6 +147,12 @@ async function runInteractive(options = {}) {
         continue;
       }
 
+      if (command === ":stream") {
+        streamSession = createStreamingSession();
+        console.log("stream mode. type :exit to return.");
+        continue;
+      }
+
       if (command.startsWith(":ngram ")) {
         printNgram(command.slice(":ngram ".length));
         continue;
@@ -165,6 +188,74 @@ async function runInteractive(options = {}) {
   } finally {
     rl.close();
   }
+}
+
+function runStreamSimulation(text) {
+  const session = createStreamingSession();
+
+  for (const char of text) {
+    const key = char === " " ? "SPACE" : char;
+    const before = session.getCommittedText();
+    session.processKey(key);
+    const after = session.getCommittedText();
+
+    if (after !== before) {
+      console.log(`key: ${key} committed: ${after}`);
+    } else {
+      console.log(`key: ${key}    preedit: ${session.getPreedit()}`);
+    }
+  }
+}
+
+function handleStreamLine(session, command) {
+  if (command === ":candidates") {
+    printStreamCandidates(session);
+    return;
+  }
+
+  if (command.startsWith(":select ")) {
+    const preedit = session.selectCandidate(Number(command.slice(":select ".length)));
+    console.log(`preedit: ${preedit}`);
+    return;
+  }
+
+  if (command === ":latency") {
+    printLatency(session.getLatencyStats());
+    return;
+  }
+
+  const before = session.getCommittedText();
+  session.processKey(command === "SPACE" ? "SPACE" : command);
+  const after = session.getCommittedText();
+
+  if (after !== before) {
+    console.log(`committed: ${after}`);
+  } else {
+    console.log(`preedit: ${session.getPreedit()}`);
+    printStreamCandidates(session);
+  }
+}
+
+function printStreamCandidates(session) {
+  const suggestions = session.getSuggestions();
+
+  if (suggestions.length === 0) {
+    console.log("suggestions: none");
+    return;
+  }
+
+  console.log("suggestions:");
+  suggestions.forEach((candidate, index) => {
+    console.log(`${index + 1}. ${candidate.text}`);
+  });
+}
+
+function printLatency(stats) {
+  console.log(`processKey avg: ${stats.processKey.avg.toFixed(3)} ms`);
+  console.log(`suggestion avg: ${stats.suggestion.avg.toFixed(3)} ms`);
+  console.log(`candidate avg: ${stats.candidate.avg.toFixed(3)} ms`);
+  console.log(`preedit avg: ${stats.preedit.avg.toFixed(3)} ms`);
+  console.log(`commit avg: ${stats.commit.avg.toFixed(3)} ms`);
 }
 
 function printBeam(inputText) {
@@ -370,6 +461,7 @@ Interactive commands:
   :perplexity               Show language-model stats
   :runtime-stats            Show runtime adaptation stats
   :rebuild-status           Show background rebuild state
+  :stream                   Enter streaming simulation mode
   :memory                   Show saved corrections
   :clear-memory             Clear saved corrections after confirmation
   :clear-memory --yes       Clear saved corrections without confirmation`);

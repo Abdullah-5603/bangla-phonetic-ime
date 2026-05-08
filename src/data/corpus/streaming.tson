@@ -1,0 +1,4 @@
+# inputKeys	expectedPreedits	expectedCommitted
+a,m,i,SPACE	আ|আম|আমি	আমি 
+a,m,i,BACKSPACE	আ|আম|আমি|আম	-
+a,m,i,RESET	আ|আম|আমি	-

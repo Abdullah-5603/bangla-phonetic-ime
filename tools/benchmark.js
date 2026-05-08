@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 
 import { performance } from "node:perf_hooks";
-import { searchSentence, transliterate } from "../src/engine/index.js";
+import {
+  createStreamingSession,
+  searchSentence,
+  transliterate
+} from "../src/engine/index.js";
 import { getCacheStats } from "../src/engine/cache.js";
 import { getLanguageScore } from "../src/engine/language-model.js";
 import { getProfileBoost } from "../src/engine/profile-manager.js";
@@ -48,6 +52,18 @@ export function runBenchmark(options = {}) {
   const rebuildStart = performance.now();
   getRebuildStatus();
   const rebuildMs = performance.now() - rebuildStart;
+  const streamSession = createStreamingSession();
+  const streamKeys = "ami bangla pre order korbo ".repeat(400);
+  const streamStartMemory = process.memoryUsage().heapUsed;
+  const streamStart = performance.now();
+
+  for (const key of streamKeys) {
+    streamSession.processKey(key);
+  }
+
+  const streamMs = performance.now() - streamStart;
+  const streamStats = streamSession.getLatencyStats();
+  const streamEndMemory = process.memoryUsage().heapUsed;
   const endMemory = process.memoryUsage().heapUsed;
 
   return {
@@ -64,7 +80,13 @@ export function runBenchmark(options = {}) {
     languageModelLookupCostMs: lmMs / samples.length,
     profileScoringOverheadMs: profileMs / samples.length,
     backgroundRebuildOverheadMs: rebuildMs,
-    runtimeAdaptationOverheadMs: 0
+    runtimeAdaptationOverheadMs: 0,
+    perKeyProcessLatencyMs: streamMs / streamKeys.length,
+    suggestionLatencyMs: streamStats.suggestion.avg,
+    preeditUpdateLatencyMs: streamStats.preedit.avg,
+    commitLatencyMs: streamStats.commit.avg,
+    streamMemoryDeltaKb: (streamEndMemory - streamStartMemory) / 1024,
+    sessionKeyEvents: streamKeys.length
   };
 }
 
@@ -81,6 +103,12 @@ export function formatBenchmarkReport(report) {
     `Profile scoring overhead: ${report.profileScoringOverheadMs.toFixed(3)} ms/sample`,
     `Background rebuild overhead: ${report.backgroundRebuildOverheadMs.toFixed(3)} ms`,
     `Runtime adaptation overhead: ${report.runtimeAdaptationOverheadMs.toFixed(3)} ms`,
+    `Per-key process latency: ${report.perKeyProcessLatencyMs.toFixed(3)} ms`,
+    `Suggestion generation latency: ${report.suggestionLatencyMs.toFixed(3)} ms`,
+    `Preedit update latency: ${report.preeditUpdateLatencyMs.toFixed(3)} ms`,
+    `Commit latency: ${report.commitLatencyMs.toFixed(3)} ms`,
+    `Streaming memory delta: ${report.streamMemoryDeltaKb.toFixed(1)} KB`,
+    `Session key events: ${report.sessionKeyEvents}`,
     "Cache stats:",
     ...report.cacheStats.map(
       (stat) =>

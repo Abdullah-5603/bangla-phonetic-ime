@@ -19,8 +19,7 @@ test("IME adapter boundary maintains a simple session", () => {
   processKeystroke(session, "a");
   processKeystroke(session, "m");
   processKeystroke(session, "i");
-  assert.equal(session.buffer, "ami");
+  assert.equal(session.getState().rawBuffer, "ami");
   resetSession(session);
-  assert.equal(session.buffer, "");
+  assert.equal(session.getState().rawBuffer, "");
 });
-

@@ -5,6 +5,7 @@ import { getCandidates, searchSentence, transliterate } from "./index.js";
 import { parseTsonRows } from "./tson.js";
 import { estimatePerplexity, getLanguageScore } from "./language-model.js";
 import { getProfileBoost } from "./profile-manager.js";
+import { createStreamingSession } from "./streaming-session.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,12 +18,29 @@ const DEFAULT_CORPUS_FILES = [
   "edge-cases.tson",
   "user-learning.tson",
   "evaluation-corpus.tson",
+  "streaming.tson",
   "regressions.tson"
 ];
 
 export function loadCorpus(files = DEFAULT_CORPUS_FILES) {
   return files.flatMap((file) => {
     const filePath = path.join(corpusDir, file);
+
+    if (file === "streaming.tson") {
+      return parseTsonRows(fs.readFileSync(filePath, "utf8"), 3).map(
+        ([inputKeys, expectedPreedits, expectedCommitted]) => ({
+          input: inputKeys,
+          expected: expectedCommitted,
+          category: "Streaming",
+          file,
+          streaming: true,
+          inputKeys: inputKeys.split(",").filter(Boolean),
+          expectedPreedits: expectedPreedits ? expectedPreedits.split("|") : [],
+          expectedCommitted: expectedCommitted === "-" ? "" : expectedCommitted
+        })
+      );
+    }
+
     const cases = parseTsonRows(fs.readFileSync(filePath, "utf8"), 3);
 
     return cases.map(([input, expected, category]) => ({
@@ -36,6 +54,10 @@ export function loadCorpus(files = DEFAULT_CORPUS_FILES) {
 
 export function evaluateCorpus(cases = loadCorpus(), options = {}) {
   const results = cases.map((item) => {
+    if (item.streaming) {
+      return evaluateStreamingCase(item);
+    }
+
     const search = searchSentence(item.input, options);
     const actual = search.best.outputs.join("");
     const top3 = search.paths.slice(0, 3).map((path) => path.outputs.join(""));
@@ -57,6 +79,7 @@ export function evaluateCorpus(cases = loadCorpus(), options = {}) {
   const total = results.length;
   const passed = results.filter((item) => item.passed).length;
   const top3Passed = results.filter((item) => item.top3Passed).length;
+  const streamingResults = results.filter((item) => item.streaming);
   const categories = new Map();
 
   for (const result of results) {
@@ -82,6 +105,16 @@ export function evaluateCorpus(cases = loadCorpus(), options = {}) {
     sentenceCoherence: getSentenceCoherence(results),
     lmPerplexity: estimatePerplexity(results),
     profileAwareAccuracy: getProfileAwareAccuracy(results),
+    preeditAccuracy: getStreamingMetric(streamingResults, "preeditPassed"),
+    finalCommitAccuracy: getStreamingMetric(streamingResults, "passed"),
+    backspaceBehaviorAccuracy: getStreamingMetric(
+      streamingResults.filter((item) => item.inputKeys.includes("BACKSPACE")),
+      "preeditPassed"
+    ),
+    sessionResetAccuracy: getStreamingMetric(
+      streamingResults.filter((item) => item.inputKeys.includes("RESET")),
+      "resetPassed"
+    ),
     categories: [...categories.entries()].map(([category, item]) => ({
       category,
       total: item.total,
@@ -107,6 +140,10 @@ export function formatEvaluationReport(report) {
     `Sentence Coherence: ${formatPercent(report.sentenceCoherence)}`,
     `LM Perplexity: ${report.lmPerplexity.toFixed(2)}`,
     `Profile-aware Accuracy: ${formatPercent(report.profileAwareAccuracy)}`,
+    `Preedit Accuracy: ${formatPercent(report.preeditAccuracy)}`,
+    `Final Commit Accuracy: ${formatPercent(report.finalCommitAccuracy)}`,
+    `Backspace Behavior Accuracy: ${formatPercent(report.backspaceBehaviorAccuracy)}`,
+    `Session Reset Accuracy: ${formatPercent(report.sessionResetAccuracy)}`,
     "",
     "Category Accuracy:"
   ];
@@ -130,6 +167,50 @@ export function formatEvaluationReport(report) {
   }
 
   return lines.join("\n");
+}
+
+function evaluateStreamingCase(item) {
+  const session = createStreamingSession();
+  const actualPreedits = [];
+
+  for (const key of item.inputKeys) {
+    if (key === "SPACE") {
+      session.processKey("SPACE");
+      continue;
+    }
+
+    if (key === "BACKSPACE") {
+      session.backspace();
+      actualPreedits.push(session.getPreedit());
+      continue;
+    }
+
+    if (key === "RESET") {
+      session.reset();
+      continue;
+    }
+
+    session.processKey(key);
+    actualPreedits.push(session.getPreedit());
+  }
+
+  const actual = session.getCommittedText();
+  const preeditPassed = arraysEqual(actualPreedits, item.expectedPreedits);
+  const resetPassed = item.inputKeys.includes("RESET")
+    ? session.getPreedit() === "" && session.getCommittedText() === ""
+    : true;
+
+  return {
+    ...item,
+    actual,
+    actualPreedits,
+    top3: [actual],
+    candidateTop3: [actual],
+    passed: actual === item.expectedCommitted,
+    top3Passed: actual === item.expectedCommitted,
+    preeditPassed,
+    resetPassed
+  };
 }
 
 function getSentenceCoherence(results) {
@@ -162,4 +243,13 @@ function getCategoryAccuracy(results, category) {
   }
 
   return (filtered.filter((item) => item.passed).length / filtered.length) * 100;
+}
+
+function getStreamingMetric(results, key) {
+  if (results.length === 0) return 0;
+  return (results.filter((item) => item[key]).length / results.length) * 100;
+}
+
+function arraysEqual(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

@@ -2,137 +2,122 @@
 
 A terminal-only Bangla phonetic transliteration engine in Node.js.
 
-Current version: `v0.0.6`
+Current version: `v0.0.7`
 
 This remains CLI-only. There is no IBus, Fcitx5, Wayland, GTK, Qt, Electron,
 Tauri, tray UI, or system-wide Linux input method in this version.
 
-## v0.0.6 Features
+## v0.0.7 Features
 
-- Lightweight statistical language model with unigram, bigram, trigram, and quadgram scoring.
-- Probabilistic sentence-level ranking on top of contextual and adaptive beam scoring.
-- Profile-aware ranking with `default`, `coding`, `commerce`, and `personal` profiles.
-- Smarter typo canonicalization using learned typo confidence plus bounded edit distance.
-- Runtime state for hot adaptation, profile usage, rebuild queue status, and cache reporting.
-- Async-safe background rebuild boundary.
-- Incremental training pipeline for runtime learning cases.
-- IME-ready adapter boundary APIs without Linux IME integration.
-- TSON-only project data for dictionaries, corpora, profiles, memory, and evaluation data.
+- Streaming session API for per-keystroke composition.
+- Preedit and commit behavior simulation.
+- Real-time suggestion engine for partial input.
+- Incremental candidate updates with session-local caches.
+- Backspace over roman input with Bangla preedit recomputation.
+- Latency monitor for processKey, suggestion, candidate, preedit, and commit timing.
+- Adapter-neutral IME contract APIs.
+- Streaming evaluation corpus and metrics.
+- Benchmark metrics for per-key process latency, suggestion latency, preedit latency, commit latency, and session memory use.
+- Larger manually curated TSON language-model seed.
 
-## Architecture
+## Streaming Model
 
-```txt
-input
-  -> normalize
-  -> tokenize
-  -> phrase resolution
-  -> candidate generation
-  -> contextual ranking
-  -> adaptive ranking
-  -> probabilistic language-model scoring
-  -> profile scoring
-  -> beam search
-  -> best sentence output
+The engine now supports both full sentence transliteration and IME-style streaming:
+
+```js
+import { createStreamingSession } from "./src/engine/index.js";
+
+const session = createStreamingSession();
+session.processText("ami");
+session.getPreedit();
+// "আমি"
+
+session.processKey({ key: " " });
+session.getCommittedText();
+// "আমি "
 ```
 
-Core modules:
+Backspace removes from the roman buffer, then recomputes preedit:
 
-- `src/engine/language-model.js`
-- `src/engine/probabilistic-ranker.js`
-- `src/engine/profile-manager.js`
-- `src/engine/typo-canonicalizer.js`
-- `src/engine/incremental-trainer.js`
-- `src/engine/background-rebuilder.js`
-- `src/engine/runtime-state.js`
-- `src/engine/ime-adapter-boundary.js`
+```js
+session.processText("ami");
+session.backspace();
+session.getPreedit();
+// "আম"
+```
 
-## TSON Data
+## IME Contract
+
+`src/engine/ime-contract.js` defines the adapter-neutral boundary:
+
+```js
+createInputSession();
+processKeyEvent(session, event);
+getPreeditText(session);
+getCandidateList(session);
+commitCandidate(session, index);
+resetComposition(session);
+```
+
+This is only an internal contract for future IBus/Fcitx work. It does not talk to
+Linux desktop APIs.
+
+## CLI Streaming
+
+Direct simulation:
+
+```sh
+node src/cli.js --stream "ami bangla"
+```
+
+Example output:
+
+```txt
+key: a    preedit: আ
+key: m    preedit: আম
+key: i    preedit: আমি
+key: SPACE committed: আমি
+```
+
+Interactive simulation:
+
+```txt
+> :stream
+stream> a
+preedit: আ
+suggestions:
+1. আ
+2. অ
+stream> m
+preedit: আম
+stream> i
+preedit: আমি
+stream> SPACE
+committed: আমি
+stream> :exit
+```
+
+Stream commands:
+
+```txt
+:candidates
+:select 1
+:latency
+:exit
+```
+
+## Data Format
 
 All project-owned runtime data uses `.tson`:
 
 ```txt
-src/data/dictionary/language-model.tson
-src/data/dictionary/quadgrams.tson
-src/data/profiles/default.tson
-src/data/profiles/coding.tson
-src/data/profiles/commerce.tson
-src/data/profiles/personal.tson
+src/data/dictionary/*.tson
 src/data/corpus/*.tson
+src/data/profiles/*.tson
 src/data/user/*.tson
 ```
 
 `package.json` remains the npm-required metadata exception.
-
-## Run
-
-```sh
-npm install
-node src/cli.js "pri odrer korbo"
-```
-
-Output:
-
-```txt
-প্রি অর্ডার করবো
-```
-
-## Interactive CLI
-
-```sh
-npm run dev
-```
-
-Commands:
-
-```txt
-:profile coding
-:profiles
-:lm প্রি অর্ডার করবো
-:perplexity
-:runtime-stats
-:rebuild-status
-:explain pri odrer
-:beam pri odrer korbo
-:learn input = output
-```
-
-Language-model example:
-
-```txt
-> :lm প্রি অর্ডার করবো
-Unigram: 26.70
-Bigram: 28.30
-Trigram: 20.00
-Quadgram: 0.00
-Final LM Score: 43.40
-```
-
-Profile example:
-
-```txt
-> :profiles
-coding
-commerce
-default
-personal
-> :profile coding
-active profile: coding
-```
-
-## IME Boundary
-
-`src/engine/ime-adapter-boundary.js` provides future-facing session APIs only:
-
-```js
-createSession();
-processKeystroke(session, "a");
-getSuggestions(session);
-commitCandidate(session, candidate);
-resetSession(session);
-destroySession(session);
-```
-
-This is not an IBus/Fcitx/Wayland integration.
 
 ## Evaluation
 
@@ -140,8 +125,16 @@ This is not an IBus/Fcitx/Wayland integration.
 npm run evaluate
 ```
 
-Reports total accuracy, top-k accuracy, regression accuracy, typo recovery,
-sentence coherence, profile-aware accuracy, and LM perplexity.
+Includes:
+
+- total accuracy
+- top-1/top-3 accuracy
+- regression accuracy
+- typo recovery accuracy
+- preedit accuracy
+- final commit accuracy
+- backspace behavior accuracy
+- session reset accuracy
 
 ## Benchmark
 
@@ -149,23 +142,18 @@ sentence coherence, profile-aware accuracy, and LM perplexity.
 npm run benchmark
 ```
 
-Reports latency, throughput, probabilistic ranking cost, language-model lookup
-cost, profile overhead, background rebuild overhead, runtime adaptation overhead,
-and cache stats.
+Includes:
 
-## Tools
+- full sentence transliteration/sec
+- average full sentence latency
+- per-key process latency
+- suggestion generation latency
+- preedit update latency
+- commit latency
+- cache hit rates
+- memory delta
 
-```sh
-npm run validate:tson
-npm run lm:build
-npm run rebuild
-npm run memory:report
-node tools/incremental-train.js input expected
-node tools/rebuild-runtime-state.js
-node tools/profile-builder.js profile.tson term boost
-```
-
-## Test
+## Tests
 
 ```sh
 npm test
@@ -173,22 +161,21 @@ npm test
 
 ## Known Limitations
 
-- The language model is small and hand-seeded.
-- Probabilities are lightweight log-score heuristics, not neural modeling.
-- Profile files are static TSON boosts.
-- Runtime rebuild is an architecture-safe queue, not a full background worker yet.
-- No system input method integration yet.
+- Streaming mode is a CLI simulation only.
+- Candidate window protocol mapping is not implemented yet.
+- Cursor movement support is minimal.
+- The suggestion engine is deterministic and small.
+- No actual Linux IME adapter is included.
 
 ## Future Roadmap
 
-v0.0.7:
+v0.0.8:
 
-1. Partial keystroke streaming
-2. Real-time suggestion engine
-3. Incremental candidate updates
-4. Latency optimization for IME usage
-5. Eventual IBus/Fcitx adapters
-6. Possible WASM optimization
+1. Actual IBus prototype adapter
+2. Candidate window protocol mapping
+3. Linux desktop testing
+4. Wayland/X11 compatibility notes
+5. Packaging prep for Arch/Omarchy
 
 ## License And Attribution
 

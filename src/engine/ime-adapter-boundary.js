@@ -1,47 +1,43 @@
-import { getCandidates, learn, transliterate } from "./index.js";
+import {
+  commitCandidate,
+  createInputSession,
+  getCandidateList,
+  getPreeditText,
+  processKeyEvent,
+  resetComposition
+} from "./ime-contract.js";
+import { learn } from "./index.js";
 
 export function createSession(options = {}) {
-  return {
-    buffer: "",
-    committed: [],
-    options
-  };
+  return createInputSession(options);
 }
 
 export function destroySession(session) {
-  session.buffer = "";
-  session.committed = [];
+  session.destroy();
 }
 
 export function processKeystroke(session, key) {
-  if (key === "Backspace") {
-    session.buffer = session.buffer.slice(0, -1);
-  } else if (key === "Enter") {
-    commitCandidate(session, transliterate(session.buffer, session.options));
-  } else {
-    session.buffer += key;
-  }
-
+  processKeyEvent(session, key);
   return getSuggestions(session);
 }
 
 export function getSuggestions(session) {
-  return getCandidates(session.buffer, session.options);
+  return getCandidateList(session);
 }
 
-export function commitCandidate(session, candidate) {
-  const text = typeof candidate === "string" ? candidate : candidate.text;
-  if (text) session.committed.push(text);
-  session.buffer = "";
-  return text;
+export function commitBoundaryCandidate(session, index = 1) {
+  return commitCandidate(session, index);
 }
 
 export function resetSession(session) {
-  session.buffer = "";
+  resetComposition(session);
   return session;
+}
+
+export function getPreedit(session) {
+  return getPreeditText(session);
 }
 
 export function learnFromCommit(input, output) {
   return learn(input, output, { context: "ime-boundary" });
 }
-
