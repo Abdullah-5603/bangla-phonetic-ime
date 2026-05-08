@@ -1,0 +1,22 @@
+{
+  "name": "bangla-phonetic-ime",
+  "version": "0.1.0",
+  "description": "Terminal-only MVP for an Avro-like Bangla phonetic typing engine.",
+  "type": "module",
+  "bin": {
+    "bangla-ime": "./bin/bangla-ime.js"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "dev": "node src/cli.js --interactive",
+    "test": "node --test"
+  },
+  "keywords": [
+    "bangla",
+    "bengali",
+    "phonetic",
+    "avro",
+    "cli"
+  ],
+  "license": "MPL-2.0"
+}
