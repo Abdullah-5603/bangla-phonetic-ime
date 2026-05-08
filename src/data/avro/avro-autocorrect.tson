@@ -1,0 +1,5 @@
+# input	output	score	category
+odrer	অর্ডার	30000	loanword-typo
+orrDar	অর্ডার	30000	loanword-typo
+ordar	অর্ডার	30000	loanword-typo
+pree	প্রি	30000	loanword-typo

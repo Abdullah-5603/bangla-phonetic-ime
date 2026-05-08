@@ -1,0 +1,16 @@
+# Maintainer: Prototype package for bangla-phonetic-ime
+pkgname=bangla-avro-ime
+pkgver=0.0.8
+pkgrel=1
+pkgdesc="Avro-compatible Bangla phonetic IME engine prototype"
+arch=("any")
+url="https://example.invalid/bangla-avro-ime"
+license=("MPL")
+depends=("nodejs" "ibus" "python")
+source=()
+sha256sums=()
+
+package() {
+  install -dm755 "$pkgdir/usr/lib/bangla-avro-ime"
+  cp -r "$srcdir/." "$pkgdir/usr/lib/bangla-avro-ime"
+}

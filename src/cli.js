@@ -30,6 +30,11 @@ import { getBigramScore, getTrigramScore } from "./engine/frequency-engine.js";
 import { getSentenceMemoryStats } from "./engine/sentence-memory.js";
 import { getTypoCandidates, getTypoStats } from "./engine/typo-learner.js";
 import { getRebuildStatus } from "./engine/background-rebuilder.js";
+import { compareWithAvro } from "./adapters/compatibility/avro-compat.js";
+import { validateAvroCompatibility } from "./adapters/compatibility/avro-validator.js";
+import { formatCompatibilityReport } from "./adapters/compatibility/compatibility-score.js";
+import { getIbusStatus } from "./adapters/ibus/bridge.js";
+import { detectDesktopEnvironment } from "./adapters/ibus/config.js";
 
 export async function main(argv = process.argv.slice(2)) {
   if (argv.includes("--help") || argv.includes("-h")) {
@@ -144,6 +149,26 @@ async function runInteractive(options = {}) {
 
       if (command === ":rebuild-status") {
         printRebuildStatus();
+        continue;
+      }
+
+      if (command.startsWith(":compat ")) {
+        printCompatibility(command.slice(":compat ".length));
+        continue;
+      }
+
+      if (command === ":compat-report") {
+        console.log(formatCompatibilityReport(validateAvroCompatibility()));
+        continue;
+      }
+
+      if (command === ":ibus-status") {
+        printIbusStatus();
+        continue;
+      }
+
+      if (command === ":desktop") {
+        printDesktopStatus();
         continue;
       }
 
@@ -380,6 +405,27 @@ function printRebuildStatus() {
   }
 }
 
+function printCompatibility(inputText) {
+  const result = compareWithAvro(inputText);
+  console.log(`Expected (Avro): ${result.expected ?? "unknown"}`);
+  console.log(`Actual: ${result.actual}`);
+  console.log(`Compatibility: ${result.passed === null ? "UNKNOWN" : result.passed ? "PASS" : "FAIL"}`);
+}
+
+function printIbusStatus() {
+  const status = getIbusStatus();
+  console.log(`bridge state: ${status.bridge}`);
+  console.log(`session count: ${status.sessionCount}`);
+  console.log(`adapter state: ${status.adapter}`);
+}
+
+function printDesktopStatus() {
+  console.log(`desktop environment: ${detectDesktopEnvironment()}`);
+  console.log(`IBus availability: prototype-check-only`);
+  console.log(`Wayland display: ${process.env.WAYLAND_DISPLAY ?? "not detected"}`);
+  console.log(`X11 display: ${process.env.DISPLAY ?? "not detected"}`);
+}
+
 function printNgram(phrase) {
   const parts = phrase.trim().split(/\s+/);
 
@@ -461,6 +507,10 @@ Interactive commands:
   :perplexity               Show language-model stats
   :runtime-stats            Show runtime adaptation stats
   :rebuild-status           Show background rebuild state
+  :compat input             Compare with Avro compatibility corpus
+  :compat-report            Show Avro compatibility summary
+  :ibus-status              Show IBus prototype adapter status
+  :desktop                  Show Wayland/X11 environment info
   :stream                   Enter streaming simulation mode
   :memory                   Show saved corrections
   :clear-memory             Clear saved corrections after confirmation

@@ -2,6 +2,45 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.8 - 2026-05-08
+
+Avro compatibility and Linux IBus prototype groundwork release.
+
+### Added
+
+- Avro compatibility TSON seed data for phonetic rules, exceptions, autocorrect, vowels, conjuncts, known behavior, and compatibility corpus.
+- Compatibility modules for Avro rule loading, exact candidate lookup, corpus validation, compatibility scoring, and rule drift checks.
+- Adapter-neutral candidate, preedit, commit, and session protocol modules.
+- Prototype IBus adapter boundary with bridge, session manager, candidate window state, preedit sync, keymap, config, and installer placeholder.
+- Linux desktop status detection for Wayland/X11 and IBus availability.
+- Arch/Omarchy packaging groundwork with PKGBUILD and installer/uninstaller scripts.
+- CLI commands:
+  - `:compat`
+  - `:compat-report`
+  - `:ibus-status`
+  - `:desktop`
+- Compatibility tooling:
+  - `compatibility-check.js`
+  - `compare-with-avro.js`
+  - `replay-avro-corpus.js`
+  - `validate-ibus.js`
+  - `generate-compatibility-report.js`
+- `COMPATIBILITY.md` documenting compatibility goals, known differences, and test status.
+
+### Changed
+
+- Updated package version to `0.0.8`.
+- Avro exact compatibility candidates now take precedence over user corrections, contextual ranking, and fuzzy fallback.
+- Full-input transliteration returns exact Avro compatibility matches before sentence beam search.
+- README now documents the Avro compatibility goal, IBus prototype status, packaging status, and Wayland/X11 notes.
+
+### Known Limitations
+
+- Full upstream Avro rule coverage is not complete yet.
+- Compatibility score is measured against the curated seed corpus, not the full official Avro behavior surface.
+- The IBus adapter is prototype groundwork only.
+- Packaging scripts are not yet validated as production Arch/AUR packages.
+
 ## v0.0.7 - 2026-05-08
 
 Streaming composition and IME-readiness release.

@@ -1,0 +1,8 @@
+# input	output	score	category
+a	আ	12000	vowel
+i	ই	12000	vowel
+u	উ	12000	vowel
+e	এ	12000	vowel
+oi	ঐ	12000	vowel
+ou	ঔ	12000	vowel
+rri	ঋ	30000	vowel

@@ -1,0 +1,6 @@
+# behavior	status	notes
+longest-match-first	supported	Avro-like longest key matching is preserved.
+rri-vowel	supported	Seeded as exact exception.
+ksh-kSh-kkh-conjunct	supported	Seeded compatibility forms map to ক্ষ.
+khuje-autocorrect	supported	Seeded exact behavior.
+full-upstream-rule-table	partial	Full official Avro rule table is not yet ported.

@@ -1,109 +1,120 @@
 # Bangla Phonetic IME
 
-A terminal-only Bangla phonetic transliteration engine in Node.js.
+A Linux-focused Bangla phonetic transliteration engine in Node.js, aiming for
+Avro Keyboard compatible phonetic behavior with a cleaner CLI-first and
+IME-ready runtime.
 
-Current version: `v0.0.7`
+Current version: `v0.0.8`
 
-This remains CLI-only. There is no IBus, Fcitx5, Wayland, GTK, Qt, Electron,
-Tauri, tray UI, or system-wide Linux input method in this version.
+This project is not inventing a new phonetic system. The goal is to make typing
+habits learned from Avro Keyboard on Windows and Android behave the same, or as
+closely as possible, while keeping the engine modular and Linux-friendly.
 
-## v0.0.7 Features
+This release is still engine and CLI focused. It includes an IBus prototype
+boundary, but no GTK, Qt, Electron, Tauri, tray app, or polished desktop UI.
 
-- Streaming session API for per-keystroke composition.
-- Preedit and commit behavior simulation.
-- Real-time suggestion engine for partial input.
-- Incremental candidate updates with session-local caches.
-- Backspace over roman input with Bangla preedit recomputation.
-- Latency monitor for processKey, suggestion, candidate, preedit, and commit timing.
-- Adapter-neutral IME contract APIs.
-- Streaming evaluation corpus and metrics.
-- Benchmark metrics for per-key process latency, suggestion latency, preedit latency, commit latency, and session memory use.
-- Larger manually curated TSON language-model seed.
+## v0.0.8 Features
 
-## Streaming Model
+- Avro-compatible deterministic rule priority.
+- Avro compatibility corpus and compatibility score tooling.
+- Avro rule, exception, vowel, conjunct, autocorrect, and known-behavior TSON seed files.
+- Compatibility modules for rule loading, validation, scoring, and drift checks.
+- Prototype IBus adapter boundary with Node bridge, session manager, keymap, preedit sync, and candidate window state.
+- Adapter-neutral candidate, preedit, commit, and session protocols.
+- Wayland/X11 desktop environment detection helpers.
+- Arch/Omarchy packaging groundwork.
+- CLI commands for compatibility checks and desktop/IBus status.
 
-The engine now supports both full sentence transliteration and IME-style streaming:
+## Avro Compatibility Goal
 
-```js
-import { createStreamingSession } from "./src/engine/index.js";
+The transliteration pipeline now gives known Avro-compatible behavior the
+highest priority:
 
-const session = createStreamingSession();
-session.processText("ami");
-session.getPreedit();
-// "আমি"
+1. exact Avro compatibility rules
+2. Avro exception behavior
+3. user corrections
+4. compatibility-safe contextual ranking
+5. fuzzy fallback
 
-session.processKey({ key: " " });
-session.getCommittedText();
-// "আমি "
-```
+Fuzzy matching and statistical ranking should not override known Avro behavior.
+See `COMPATIBILITY.md` for compatibility status, known differences, and the
+current test coverage.
 
-Backspace removes from the roman buffer, then recomputes preedit:
-
-```js
-session.processText("ami");
-session.backspace();
-session.getPreedit();
-// "আম"
-```
-
-## IME Contract
-
-`src/engine/ime-contract.js` defines the adapter-neutral boundary:
-
-```js
-createInputSession();
-processKeyEvent(session, event);
-getPreeditText(session);
-getCandidateList(session);
-commitCandidate(session, index);
-resetComposition(session);
-```
-
-This is only an internal contract for future IBus/Fcitx work. It does not talk to
-Linux desktop APIs.
-
-## CLI Streaming
-
-Direct simulation:
+## Basic Usage
 
 ```sh
-node src/cli.js --stream "ami bangla"
+npm install
+npm start -- "ami bangla likhi"
 ```
 
-Example output:
+Output:
 
 ```txt
-key: a    preedit: আ
-key: m    preedit: আম
-key: i    preedit: আমি
-key: SPACE committed: আমি
+আমি বাংলা লিখি
 ```
 
-Interactive simulation:
+Interactive CLI:
 
-```txt
-> :stream
-stream> a
-preedit: আ
-suggestions:
-1. আ
-2. অ
-stream> m
-preedit: আম
-stream> i
-preedit: আমি
-stream> SPACE
-committed: আমি
-stream> :exit
+```sh
+npm run dev
 ```
 
-Stream commands:
+Useful commands:
 
 ```txt
-:candidates
-:select 1
-:latency
-:exit
+:candidates order
+:beam pre order korbo
+:explain pri odrer
+:stream
+:compat rri
+:compat-report
+:ibus-status
+:desktop
+:q
+```
+
+## Compatibility Tools
+
+Run the Avro compatibility corpus:
+
+```sh
+npm run compatibility
+```
+
+Replay or compare compatibility data:
+
+```sh
+node tools/replay-avro-corpus.js
+node tools/compare-with-avro.js
+node tools/generate-compatibility-report.js
+```
+
+Example interactive check:
+
+```txt
+> :compat rri
+Expected (Avro): ঋ
+Actual: ঋ
+Compatibility: PASS
+```
+
+## IBus Prototype
+
+The IBus code is intentionally isolated from the engine core:
+
+```txt
+src/adapters/ibus/
+src/adapters/protocol/
+```
+
+The current adapter is prototype groundwork. It defines bridge/session/preedit
+and candidate synchronization boundaries, but it is not production-ready desktop
+integration.
+
+Check adapter status:
+
+```sh
+npm run ibus:status
 ```
 
 ## Data Format
@@ -111,13 +122,21 @@ Stream commands:
 All project-owned runtime data uses `.tson`:
 
 ```txt
+src/data/avro/*.tson
 src/data/dictionary/*.tson
 src/data/corpus/*.tson
+src/data/linux/*.tson
 src/data/profiles/*.tson
 src/data/user/*.tson
 ```
 
 `package.json` remains the npm-required metadata exception.
+
+Validate TSON files:
+
+```sh
+npm run validate:tson
+```
 
 ## Evaluation
 
@@ -125,16 +144,8 @@ src/data/user/*.tson
 npm run evaluate
 ```
 
-Includes:
-
-- total accuracy
-- top-1/top-3 accuracy
-- regression accuracy
-- typo recovery accuracy
-- preedit accuracy
-- final commit accuracy
-- backspace behavior accuracy
-- session reset accuracy
+Reports total, top-1/top-3, regression, typo recovery, phrase, loanword,
+sentence, streaming, and language-model metrics.
 
 ## Benchmark
 
@@ -142,16 +153,8 @@ Includes:
 npm run benchmark
 ```
 
-Includes:
-
-- full sentence transliteration/sec
-- average full sentence latency
-- per-key process latency
-- suggestion generation latency
-- preedit update latency
-- commit latency
-- cache hit rates
-- memory delta
+Reports full-sentence latency, per-key streaming latency, suggestion latency,
+commit latency, cache statistics, memory delta, and language-model overhead.
 
 ## Tests
 
@@ -159,27 +162,49 @@ Includes:
 npm test
 ```
 
+## Packaging Status
+
+Prototype packaging files are included:
+
+```txt
+packaging/PKGBUILD
+packaging/arch-install.sh
+packaging/omarchy-install.sh
+packaging/ibus-register.sh
+packaging/uninstall.sh
+```
+
+They are groundwork only. Real AUR/package repository testing is planned for a
+future release.
+
+## Wayland/X11 Notes
+
+The project can detect desktop session context and IBus availability for status
+reporting. It does not yet install or activate a system input method.
+
 ## Known Limitations
 
-- Streaming mode is a CLI simulation only.
-- Candidate window protocol mapping is not implemented yet.
-- Cursor movement support is minimal.
-- The suggestion engine is deterministic and small.
-- No actual Linux IME adapter is included.
+- The Avro compatibility corpus is still small and manually curated.
+- Full upstream Avro/ibus-avro rule tables have not been completely ported.
+- The IBus adapter is a prototype boundary, not a production engine.
+- Candidate pagination and rich candidate window behavior are not implemented.
+- Cursor movement support remains limited.
+- Arch/Omarchy packaging has not been validated in a real package repository.
 
 ## Future Roadmap
 
-v0.0.8:
+v0.0.9:
 
-1. Actual IBus prototype adapter
-2. Candidate window protocol mapping
-3. Linux desktop testing
-4. Wayland/X11 compatibility notes
-5. Packaging prep for Arch/Omarchy
+1. Fcitx5 prototype adapter
+2. Real desktop testing
+3. Candidate pagination
+4. Cursor movement support
+5. IME persistence
+6. Package repository preparation
+7. Arch/AUR testing
 
 ## License And Attribution
 
-The MVP rule behavior is inspired by Avro Keyboard and ibus-avro. See
-`NOTICE.md` and `LICENSE-AVRO.md` for attribution and license notes that must be
-preserved if upstream Avro/ibus-avro rules are copied or ported into this
-project.
+The project is inspired by Avro Keyboard and ibus-avro behavior. Preserve
+MPL-compatible attribution when Avro-derived rules or datasets are referenced or
+ported. See `NOTICE.md`, `LICENSE-AVRO.md`, and `COMPATIBILITY.md`.

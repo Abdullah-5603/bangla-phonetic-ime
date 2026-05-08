@@ -1,0 +1,4 @@
+# environment	status	notes
+wayland	prototype	Requires IBus daemon and desktop-specific testing.
+x11	prototype	Requires IBus daemon and desktop-specific testing.
+unknown	unsupported	CLI engine still works.

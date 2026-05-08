@@ -1,0 +1,15 @@
+# input	expected	category
+ami	আমি	basic
+tumi	তুমি	basic
+bangla	বাংলা	basic
+amar sonar bangla	আমার সোনার বাংলা	basic
+shikkha	শিক্ষা	conjunct
+dhonnobad	ধন্যবাদ	conjunct
+ksh	ক্ষ	conjunct
+kSh	ক্ষ	conjunct
+kkh	ক্ষ	conjunct
+rri	ঋ	vowel
+khuje	খুঁজে	complex
+nga	ঙ্গ	conjunct
+pre order	প্রি অর্ডার	loanword
+pri odrer	প্রি অর্ডার	typo

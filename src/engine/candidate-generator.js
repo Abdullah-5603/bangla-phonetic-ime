@@ -6,6 +6,7 @@ import { getMemoryCorrection } from "./user-memory.js";
 import { getTypoCandidates, getTypoBoost } from "./typo-learner.js";
 import { createLRUCache } from "./cache.js";
 import { canonicalizeTypo } from "./typo-canonicalizer.js";
+import { getAvroCandidate } from "../adapters/compatibility/avro-rule-loader.js";
 import {
   damerauLevenshtein,
   getFuzzyKeys,
@@ -30,6 +31,7 @@ export function generateCandidates(input, options = {}) {
 
   const candidates = [];
 
+  addCandidate(candidates, getAvroCandidate(key));
   addCandidate(candidates, getMemoryCorrection(key));
   addEntries(candidates, coreBangla.get(key), key);
   addEntries(candidates, loanwords.get(key), key);

@@ -1,0 +1,20 @@
+# input	output	score	category
+ami	আমি	30000	basic
+tumi	তুমি	30000	basic
+bangla	বাংলা	30000	basic
+amar	আমার	30000	basic
+sonar	সোনার	30000	basic
+shikkha	শিক্ষা	30000	conjunct
+dhonnobad	ধন্যবাদ	30000	conjunct
+ksh	ক্ষ	30000	conjunct
+kSh	ক্ষ	30000	conjunct
+kkh	ক্ষ	30000	conjunct
+rri	ঋ	30000	vowel
+RRI	ৠ	30000	vowel
+ri	রি	28000	vowel
+khuje	খুঁজে	30000	complex
+nga	ঙ্গ	30000	conjunct
+ng	ং	28000	anusvara
+pre order	প্রি অর্ডার	30000	loanword
+pri order	প্রি অর্ডার	30000	loanword
+pri odrer	প্রি অর্ডার	30000	typo
