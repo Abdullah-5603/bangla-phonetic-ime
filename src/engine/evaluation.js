@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { transliterate } from "./index.js";
+import { getCandidates, searchSentence, transliterate } from "./index.js";
 import { parseTsonRows } from "./tson.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,6 +13,7 @@ const DEFAULT_CORPUS_FILES = [
   "phrases.tson",
   "mixed.tson",
   "edge-cases.tson",
+  "user-corrections.tson",
   "regressions.tson"
 ];
 
@@ -32,17 +33,27 @@ export function loadCorpus(files = DEFAULT_CORPUS_FILES) {
 
 export function evaluateCorpus(cases = loadCorpus(), options = {}) {
   const results = cases.map((item) => {
-    const actual = transliterate(item.input, options);
+    const search = searchSentence(item.input, options);
+    const actual = search.best.outputs.join("");
+    const top3 = search.paths.slice(0, 3).map((path) => path.outputs.join(""));
+    const candidateTop3 =
+      item.input.trim().split(/\s+/).length === 1
+        ? getCandidates(item.input).slice(0, 3).map((candidate) => candidate.text)
+        : top3;
 
     return {
       ...item,
       actual,
-      passed: actual === item.expected
+      top3,
+      candidateTop3,
+      passed: actual === item.expected,
+      top3Passed: top3.includes(item.expected) || candidateTop3.includes(item.expected)
     };
   });
 
   const total = results.length;
   const passed = results.filter((item) => item.passed).length;
+  const top3Passed = results.filter((item) => item.top3Passed).length;
   const categories = new Map();
 
   for (const result of results) {
@@ -57,6 +68,13 @@ export function evaluateCorpus(cases = loadCorpus(), options = {}) {
     passed,
     failed: total - passed,
     accuracy: total === 0 ? 0 : (passed / total) * 100,
+    top1Accuracy: total === 0 ? 0 : (passed / total) * 100,
+    top3Accuracy: total === 0 ? 0 : (top3Passed / total) * 100,
+    regressionAccuracy: getCategoryAccuracy(results, "Regressions"),
+    typoAccuracy: getCategoryAccuracy(results, "Typo"),
+    phraseAccuracy: getCategoryAccuracy(results, "Phrases"),
+    loanwordAccuracy: getCategoryAccuracy(results, "Loanwords"),
+    sentenceAccuracy: getCategoryAccuracy(results, "Mixed"),
     categories: [...categories.entries()].map(([category, item]) => ({
       category,
       total: item.total,
@@ -72,6 +90,13 @@ export function evaluateCorpus(cases = loadCorpus(), options = {}) {
 export function formatEvaluationReport(report) {
   const lines = [
     `Total Accuracy: ${formatPercent(report.accuracy)}`,
+    `Top-1 Accuracy: ${formatPercent(report.top1Accuracy)}`,
+    `Top-3 Accuracy: ${formatPercent(report.top3Accuracy)}`,
+    `Regression Accuracy: ${formatPercent(report.regressionAccuracy)}`,
+    `Typo Accuracy: ${formatPercent(report.typoAccuracy)}`,
+    `Phrase Accuracy: ${formatPercent(report.phraseAccuracy)}`,
+    `Loanword Accuracy: ${formatPercent(report.loanwordAccuracy)}`,
+    `Sentence Accuracy: ${formatPercent(report.sentenceAccuracy)}`,
     "",
     "Category Accuracy:"
   ];
@@ -103,4 +128,14 @@ export function runEvaluation(options = {}) {
 
 function formatPercent(value) {
   return `${value.toFixed(1)}%`;
+}
+
+function getCategoryAccuracy(results, category) {
+  const filtered = results.filter((item) => item.category === category);
+
+  if (filtered.length === 0) {
+    return 0;
+  }
+
+  return (filtered.filter((item) => item.passed).length / filtered.length) * 100;
 }

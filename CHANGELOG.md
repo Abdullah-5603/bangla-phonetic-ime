@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.5 - 2026-05-08
+
+Adaptive learning and TSON infrastructure release.
+
+### Added
+
+- Adaptive ranker combining static score, frequency score, ngram score, sentence memory, typo confidence, and validation penalties.
+- Sentence memory store at `src/data/user/sentence-memory.tson`.
+- Correction memory store at `src/data/user/correction-memory.tson`.
+- Learned typo pattern store at `src/data/user/learned-patterns.tson`.
+- Ranking memory placeholder at `src/data/user/ranking-memory.tson`.
+- Frequency, trigram, typo-pattern, and grammar-pattern dictionaries.
+- Online learning API and `:learn` CLI command.
+- CLI commands:
+  - `:memory-stats`
+  - `:ngram`
+  - `:explain`
+- LRU cache layer with cache statistics.
+- Advanced evaluator facade.
+- TSON utility layer with read, write, validate, compact, and merge helpers.
+- Corpus tools for import, clean, dedupe, frequency building, ngram building, memory export, validation, and rebuild.
+
+### Changed
+
+- Updated package version to `0.0.5`.
+- Beam scoring now includes adaptive node scoring and final sentence probability.
+- Benchmark output now includes cache stats, typo-learning overhead, and ngram lookup cost.
+- Evaluation now includes top-1, top-3, regression, typo, phrase, loanword, and sentence accuracy.
+- Project-owned dictionaries, corpora, memory stores, frequency tables, phrase data, and evaluation data remain TSON-only.
+
+### Known Limitations
+
+- Learning is still deterministic and conservative.
+- Corpus size remains small.
+- Sentence memory currently favors exact normalized input patterns.
+
 ## v0.0.4 - 2026-05-08
 
 Sentence-level intelligence and evaluation release.

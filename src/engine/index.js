@@ -6,6 +6,7 @@ import { searchSentence, transliterateSentence } from "./transliterate.js";
 import { tokenize } from "./tokenizer.js";
 
 export { learnCorrection } from "./user-memory.js";
+export { learn } from "./online-learning.js";
 export { searchSentence } from "./transliterate.js";
 
 export function transliterate(input, options = {}) {

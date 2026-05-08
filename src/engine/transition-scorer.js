@@ -49,6 +49,5 @@ export function scoreTransition(previous, current, context = {}) {
 }
 
 function isLoanword(candidate) {
-  return ["loanword", "fuzzy-loanword"].includes(candidate.source);
+  return ["loanword", "fuzzy-loanword", "typo-learned"].includes(candidate.source);
 }
-

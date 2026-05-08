@@ -3,7 +3,7 @@
 import {
   formatEvaluationReport,
   runEvaluation
-} from "../src/engine/evaluation.js";
+} from "../src/engine/evaluator.js";
 
 export function main() {
   const report = runEvaluation();
@@ -17,4 +17,3 @@ export function main() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
-

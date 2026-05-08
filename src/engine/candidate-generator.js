@@ -3,6 +3,8 @@ import {
   loadCandidateDictionary
 } from "./dictionary-loader.js";
 import { getMemoryCorrection } from "./user-memory.js";
+import { getTypoCandidates, getTypoBoost } from "./typo-learner.js";
+import { createLRUCache } from "./cache.js";
 import {
   damerauLevenshtein,
   getFuzzyKeys,
@@ -14,15 +16,24 @@ const coreBangla = loadCandidateDictionary("core-bangla.tson");
 const loanwords = loadCandidateDictionary("loanwords.tson");
 const commonCorrections = loadCandidateDictionary("corrections.tson");
 const fuzzyCache = new Map();
+const candidateCache = createLRUCache("candidate", 1000);
 
 export function generateCandidates(input, options = {}) {
   const key = normalizeCandidateKey(input);
+  const cacheKey = `${key}:${options.phoneticFallback !== false}`;
+  const cached = candidateCache.get(cacheKey);
+
+  if (cached !== undefined) {
+    return cached;
+  }
+
   const candidates = [];
 
   addCandidate(candidates, getMemoryCorrection(key));
   addEntries(candidates, coreBangla.get(key), key);
   addEntries(candidates, loanwords.get(key), key);
   addEntries(candidates, commonCorrections.get(key), key);
+  addTypoCandidates(candidates, key);
   addFuzzyLoanwordCandidates(candidates, key);
 
   if (options.phoneticFallback !== false) {
@@ -34,7 +45,29 @@ export function generateCandidates(input, options = {}) {
     });
   }
 
-  return uniqueCandidates(candidates);
+  const result = uniqueCandidates(candidates);
+  candidateCache.set(cacheKey, result);
+  return result;
+}
+
+function addTypoCandidates(candidates, key) {
+  for (const typo of getTypoCandidates(key)) {
+    const entries = loanwords.get(typo.canonical) ?? coreBangla.get(typo.canonical) ?? [];
+
+    for (const entry of entries) {
+      addCandidate(candidates, {
+        ...entry,
+        score: Math.max(Number(entry.score || 0), 5000) + getTypoBoost(key, typo.canonical),
+        source: "typo-learned",
+        meta: {
+          ...(entry.meta ?? {}),
+          input: key,
+          canonical: typo.canonical,
+          typoConfidence: typo.confidence
+        }
+      });
+    }
+  }
 }
 
 function addFuzzyLoanwordCandidates(candidates, key) {

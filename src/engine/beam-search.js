@@ -1,4 +1,5 @@
 import { scoreTransition } from "./transition-scorer.js";
+import { scoreAdaptiveNode, scoreFinalSentence } from "./adaptive-ranker.js";
 
 const DEFAULT_BEAM_WIDTH = 5;
 
@@ -32,7 +33,13 @@ export function beamSearch(graph, options = {}) {
     }
   }
 
-  const finalPaths = prunePaths(frontier.get(graph.tokens.length) ?? [], beamWidth);
+  const finalPaths = prunePaths(
+    (frontier.get(graph.tokens.length) ?? []).map((path) => ({
+      ...path,
+      score: path.score + scoreFinalSentence(path, graph)
+    })),
+    beamWidth
+  );
 
   return {
     best: finalPaths[0] ?? createInitialPath(),
@@ -63,7 +70,8 @@ function extendPath(path, node, graph, options) {
         })
       : 0;
 
-  const nextScore = path.score + node.score + transition;
+  const adaptive = scoreAdaptiveNode(path, node, graph);
+  const nextScore = path.score + node.score + transition + adaptive;
   const nextPath = {
     tokens: [...path.tokens, node.meta.input ?? graph.tokens[node.index]?.value ?? ""],
     outputs: [...path.outputs, node.text],
@@ -75,7 +83,8 @@ function extendPath(path, node, graph, options) {
         {
           from: path.meta.lastLexical?.text ?? null,
           to: node.meta.lexical ? node.text : null,
-          score: transition
+          score: transition,
+          adaptive
         }
       ],
       lastLexical: node.meta.lexical ? node : path.meta.lastLexical
@@ -101,4 +110,3 @@ function prunePaths(paths, beamWidth) {
     .sort((a, b) => b.score - a.score)
     .slice(0, beamWidth);
 }
-

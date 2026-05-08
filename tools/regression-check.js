@@ -4,7 +4,7 @@ import {
   evaluateCorpus,
   formatEvaluationReport,
   loadCorpus
-} from "../src/engine/evaluation.js";
+} from "../src/engine/evaluator.js";
 
 export function main() {
   const report = evaluateCorpus(loadCorpus(["regressions.tson"]));

@@ -1,24 +1,23 @@
 # Bangla Phonetic IME
 
-A terminal-only Bangla phonetic transliteration engine in Node.js. It converts
-Banglish or romanized Bangla text into Unicode Bangla from the command line.
+A terminal-only Bangla phonetic transliteration engine in Node.js.
 
-Current version: `v0.0.4`
+Current version: `v0.0.5`
 
-This is still CLI-only. It does not implement IBus, Fcitx5, Wayland, GTK, Qt,
-Electron, Tauri, tray UI, or system-wide Linux typing.
+This remains CLI-only. There is no IBus, Fcitx5, Wayland, GTK, Qt, Electron,
+Tauri, tray UI, or system-wide Linux input method in this version.
 
-## v0.0.4 Features
+## v0.0.5 Features
 
-- Sentence-level candidate graph generation.
-- Beam search over sentence paths with configurable beam width.
-- Contextual transition scoring with bigram and phrase likelihoods.
-- TSON-backed dictionaries for core words, loanwords, phrases, corrections, and bigrams.
-- Bounded Damerau-Levenshtein fuzzy matching for longer high-confidence loanword keys.
-- Bangla output validation penalties for repeated hasanta, malformed kar ordering, and suspicious repetition.
-- Offline evaluation corpus with category accuracy and failed-case reporting.
-- Regression corpus for previously fixed behavior.
-- Benchmark tool for latency, throughput, memory, and beam-search cost.
+- Adaptive statistical ranking on top of deterministic beam search.
+- Sentence-level memory for repeatedly confirmed sentence patterns.
+- Typo pattern learning with bounded confidence scores.
+- Frequency, bigram, trigram, and grammar-pattern scoring.
+- Online learning command for corrections, sentence memory, and typo memory.
+- LRU caches for normalization, candidates, ngrams, typo lookup, and sentence memory.
+- TSON-only project data for dictionaries, corpora, memory, frequency tables, and learning stores.
+- Corpus ingestion and rebuild tools for scalable TSON workflows.
+- Advanced evaluator with top-k, regression, typo, phrase, loanword, and sentence accuracy.
 
 ## Architecture
 
@@ -27,23 +26,44 @@ input
   -> normalize
   -> tokenize
   -> phrase resolution
-  -> generate candidates per token
-  -> build sentence candidate graph
-  -> contextual transition scoring
+  -> candidate generation
+  -> contextual ranking
+  -> adaptive ranking
   -> beam search
+  -> sentence memory boost
+  -> typo pattern correction
   -> best sentence output
 ```
 
-Main engine modules:
+Core modules:
 
-- `src/engine/transliterate.js`
-- `src/engine/graph-builder.js`
+- `src/engine/adaptive-ranker.js`
 - `src/engine/beam-search.js`
-- `src/engine/contextual-ranker.js`
-- `src/engine/transition-scorer.js`
-- `src/engine/candidate-generator.js`
-- `src/engine/evaluation.js`
-- `src/engine/user-memory.js`
+- `src/engine/frequency-engine.js`
+- `src/engine/typo-learner.js`
+- `src/engine/sentence-memory.js`
+- `src/engine/online-learning.js`
+- `src/engine/evaluator.js`
+- `src/engine/validator.js`
+- `src/engine/cache.js`
+- `src/utils/tson.js`
+
+## TSON Data
+
+All project-owned data uses `.tson`:
+
+```txt
+src/data/dictionary/core-bangla.tson
+src/data/dictionary/loanwords.tson
+src/data/dictionary/phrases.tson
+src/data/dictionary/bigrams.tson
+src/data/dictionary/trigrams.tson
+src/data/dictionary/typo-patterns.tson
+src/data/dictionary/frequency-table.tson
+src/data/dictionary/grammar-patterns.tson
+src/data/corpus/*.tson
+src/data/user/*.tson
+```
 
 ## Run
 
@@ -73,71 +93,37 @@ Commands:
 :beam pre order korbo
 :eval
 :benchmark
-:fix pre order = প্রি অর্ডার
+:fix input = output
+:learn input = output
 :memory
+:memory-stats
+:ngram প্রি অর্ডার করবো
+:explain pri odrer
 :clear-memory
 :clear-memory --yes
 ```
 
-Beam example:
+Learning example:
 
 ```txt
-> :beam pre order korbo
-1. প্রি অর্ডার করবো   score: 56700
-2. প্রি অর্ডার করব   score: 43900
-3. প্রি অর্ডার কোর্বো   score: 36100
+> :learn pre order korbo = প্রি অর্ডার করবো
+Learned: pre order korbo => প্রি অর্ডার করবো
+Sentence memory count: 4
+Typo patterns learned: 0
 ```
 
-## Engine API
-
-```js
-import {
-  getCandidates,
-  learnCorrection,
-  searchSentence,
-  transliterate
-} from "./src/engine/index.js";
-
-transliterate("pri odrer");
-// "প্রি অর্ডার"
-
-getCandidates("order")[0].text;
-// "অর্ডার"
-
-searchSentence("pre order korbo", { beamWidth: 5 }).best.outputs.join("");
-// "প্রি অর্ডার করবো"
-
-learnCorrection("orrDar", "অর্ডার");
-```
-
-## TSON Data
-
-Dictionary data is stored in compact TSON files:
+Explain example:
 
 ```txt
-src/data/dictionary/core-bangla.tson
-src/data/dictionary/loanwords.tson
-src/data/dictionary/phrases.tson
-src/data/dictionary/bigrams.tson
-src/data/dictionary/corrections.tson
-src/data/user/user-memory.tson
+> :explain pri odrer
+Normalization: pri odrer
+Candidates:
+pri -> প্রি
+odrer -> অর্ডার, অদ্রের
+Typo match: odrer -> order
+confidence: 0.88
+Beam winner: প্রি অর্ডার
 ```
-
-Candidate dictionary rows:
-
-```txt
-input	output	score	source
-order	অর্ডার	9500	loanword
-```
-
-Bigram score rows:
-
-```txt
-previous current	score
-প্রি অর্ডার	15000
-```
-
-Project dictionaries, corpus, and user memory are stored as TSON.
 
 ## Evaluation
 
@@ -145,21 +131,8 @@ Project dictionaries, corpus, and user memory are stored as TSON.
 npm run evaluate
 ```
 
-Output includes total accuracy, category accuracy, and failed cases.
-
-```txt
-Total Accuracy: 100.0%
-
-Category Accuracy:
-- Common Bangla: 100.0% (4/4)
-- Loanwords: 100.0% (4/4)
-- Phrases: 100.0% (4/4)
-- Mixed: 100.0% (4/4)
-- Edge Cases: 100.0% (3/3)
-- Regressions: 100.0% (9/9)
-```
-
-Regression cases live in `src/data/corpus/regressions.tson`.
+Reports total, top-1, top-3, regression, typo, phrase, loanword, and sentence
+accuracy.
 
 ## Benchmark
 
@@ -167,12 +140,20 @@ Regression cases live in `src/data/corpus/regressions.tson`.
 npm run benchmark
 ```
 
-Reports:
+Reports throughput, latency, memory delta, beam-search cost, learning overhead,
+ngram lookup cost, and cache hit rates.
 
-- transliterations/sec
-- average latency
-- memory delta
-- beam search cost
+## Corpus Tools
+
+```sh
+node tools/import-corpus.js input.tson output.tson Imported
+node tools/clean-corpus.js src/data/corpus/common.tson
+node tools/dedupe-corpus.js src/data/corpus/common.tson
+node tools/build-frequency-table.js
+node tools/build-ngrams.js
+node tools/validate-tson.js
+node tools/rebuild-all.js
+```
 
 ## Test
 
@@ -182,21 +163,22 @@ npm test
 
 ## Known Limitations
 
-- Corpus is still small.
-- Contextual scoring is deterministic heuristics, not ML.
-- Fuzzy matching is intentionally bounded and conservative.
-- Bangla grammar heuristics cover only a few MVP cases.
-- No system IME integration yet.
+- Corpus size is still small.
+- Learning is deterministic and confidence-based, not neural.
+- Typo learning uses conservative canonical inference.
+- Sentence memory is exact-pattern oriented.
+- No system input method integration yet.
 
 ## Future Roadmap
 
-v0.0.5:
+v0.0.6:
 
-1. Larger corpus
-2. Better context learning
-3. Sentence memory
-4. Online learning
-5. Eventual Linux IME integration
+1. Probabilistic language model
+2. Incremental ranking refinement
+3. Personalized ranking profiles
+4. Eventual Linux IME adapter layer
+5. Async background corpus rebuilding
+6. Possible WASM optimization
 
 ## License And Attribution
 

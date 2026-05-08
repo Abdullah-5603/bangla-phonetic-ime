@@ -2,13 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeInput } from "./normalizer.js";
-import { parseTson, stringifyTson } from "./tson.js";
+import { parseTson, stringifyTson } from "../utils/tson.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const memoryPath = path.resolve(
   __dirname,
-  "../data/user/user-memory.tson"
+  "../data/user/correction-memory.tson"
 );
 
 export function getUserMemoryPath() {

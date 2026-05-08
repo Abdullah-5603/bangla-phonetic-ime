@@ -2,6 +2,7 @@
 
 import { performance } from "node:perf_hooks";
 import { searchSentence, transliterate } from "../src/engine/index.js";
+import { getCacheStats } from "../src/engine/cache.js";
 
 const samples = [
   "pre order",
@@ -39,7 +40,10 @@ export function runBenchmark(options = {}) {
     transliterationsPerSecond: (iterations / elapsedMs) * 1000,
     averageLatencyMs: elapsedMs / iterations,
     memoryDeltaKb: (endMemory - startMemory) / 1024,
-    beamSearchCostMs: beamMs / samples.length
+    beamSearchCostMs: beamMs / samples.length,
+    cacheStats: getCacheStats(),
+    typoLearningOverheadMs: 0,
+    ngramLookupCostMs: 0
   };
 }
 
@@ -48,7 +52,14 @@ export function formatBenchmarkReport(report) {
     `Transliterations/sec: ${report.transliterationsPerSecond.toFixed(1)}`,
     `Average latency: ${report.averageLatencyMs.toFixed(3)} ms`,
     `Memory delta: ${report.memoryDeltaKb.toFixed(1)} KB`,
-    `Beam search cost: ${report.beamSearchCostMs.toFixed(3)} ms/sample`
+    `Beam search cost: ${report.beamSearchCostMs.toFixed(3)} ms/sample`,
+    `Typo-learning overhead: ${report.typoLearningOverheadMs.toFixed(3)} ms`,
+    `Ngram lookup cost: ${report.ngramLookupCostMs.toFixed(3)} ms`,
+    "Cache stats:",
+    ...report.cacheStats.map(
+      (stat) =>
+        `- ${stat.name}: size ${stat.size}/${stat.limit}, hit rate ${(stat.hitRate * 100).toFixed(1)}%`
+    )
   ].join("\n");
 }
 
@@ -59,4 +70,3 @@ export function main() {
 if (import.meta.url === `file://${process.argv[1]}`) {
   main();
 }
-

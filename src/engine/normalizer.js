@@ -1,3 +1,7 @@
+import { createLRUCache } from "./cache.js";
+
+const normalizeCache = createLRUCache("normalization", 1000);
+
 export function normalizeInput(input) {
   const source = String(input ?? "");
   const cached = normalizeCache.get(source);
@@ -82,5 +86,3 @@ export function damerauLevenshtein(a, b, maxDistance = 2) {
 function collapseRepeatedLetters(input) {
   return input.replace(/([a-z])\1+/g, "$1");
 }
-
-const normalizeCache = new Map();

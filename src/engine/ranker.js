@@ -1,9 +1,12 @@
+import { validateBanglaWord } from "./validator.js";
+
 const DEFAULT_SCORES = {
   "user-correction": 20000,
   phrase: 15000,
   dictionary: 10000,
   loanword: 9000,
   "common-correction": 8000,
+  "typo-learned": 7000,
   "fuzzy-loanword": 5000,
   phonetic: 1000
 };
@@ -17,32 +20,7 @@ export function rankCandidates(candidates, context = {}) {
     .sort((a, b) => b.score - a.score || sourceRank(b.source) - sourceRank(a.source));
 }
 
-export function validateBanglaWord(word) {
-  const output = String(word ?? "");
-  const issues = [];
-
-  if (/্{2,}/.test(output)) {
-    issues.push({ code: "repeated-hasanta", penalty: 700 });
-  }
-
-  if (/[ািীুূেৈোৌ]{2,}/.test(output)) {
-    issues.push({ code: "invalid-kar-ordering", penalty: 500 });
-  }
-
-  if (/([\u0995-\u09B9])\1{2,}/.test(output)) {
-    issues.push({ code: "repeated-consonant", penalty: 300 });
-  }
-
-  if (/[ািীুূেৈোৌ]্/.test(output)) {
-    issues.push({ code: "malformed-vowel-sign", penalty: 500 });
-  }
-
-  return {
-    valid: issues.length === 0,
-    issues,
-    penalty: issues.reduce((total, issue) => total + issue.penalty, 0)
-  };
-}
+export { validateBanglaWord } from "./validator.js";
 
 function scoreCandidate(candidate, context) {
   let score = Number(candidate.score ?? DEFAULT_SCORES[candidate.source] ?? 0);
