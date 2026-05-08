@@ -3,11 +3,24 @@
 A terminal-only Bangla phonetic transliteration engine in Node.js. It converts
 Banglish or romanized Bangla text into Unicode Bangla from the command line.
 
-Current version: `v0.0.2`
+Current version: `v0.0.3`
 
 This is not a system input method yet. It does not implement IBus, Fcitx5,
 Wayland, GTK, Qt, a GUI, tray app, Electron, Tauri, or global Linux typing. The
 current scope is only the reusable JavaScript engine and terminal CLI.
+
+## v0.0.3 Update
+
+- User correction memory now uses compact TSON storage.
+- Runtime correction memory is stored at `src/data/user/user-dictionary.tson`.
+- The npm manifest remains `package.json` because npm requires it.
+
+TSON format in this project is a compact tab-separated object notation:
+
+```txt
+# bangla-phonetic-ime tson v1
+orrdar	অর্ডার	1	2026-05-08T00:00:00.000Z
+```
 
 ## v0.0.2 Features
 
@@ -167,7 +180,7 @@ In interactive mode:
 Saved: pre order => প্রি অর্ডার
 ```
 
-Corrections are saved in `src/data/user/user-dictionary.json`.
+Corrections are saved in `src/data/user/user-dictionary.tson`.
 
 ## Test
 

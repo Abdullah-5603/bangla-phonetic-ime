@@ -29,4 +29,3 @@ test("transliterate preserves numbers and unknown symbols safely", () => {
   assert.match(transliterate("version 1 #test"), /1/);
   assert.match(transliterate("version 1 #test"), /#/);
 });
-

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.0.3 - 2026-05-08
+
+Storage-only release.
+
+### Changed
+
+- Updated package version to `0.0.3`.
+- Replaced user correction memory storage with compact TSON.
+- Renamed user memory file to `src/data/user/user-dictionary.tson`.
+- Removed runtime JSON parsing/stringifying from the user memory layer.
+
 ## v0.0.2 - 2026-05-08
 
 Refactored the MVP into a candidate-based terminal Bangla phonetic engine.
@@ -11,7 +22,7 @@ Refactored the MVP into a candidate-based terminal Bangla phonetic engine.
 - Candidate generation pipeline with ranked candidate objects.
 - Phrase resolver with longest-match-first phrase overrides.
 - Core Bangla dictionary, loanword dictionary, phrase dictionary, and common corrections.
-- User correction memory stored in `src/data/user/user-dictionary.json`.
+- User correction memory storage.
 - Public `learnCorrection(input, output)` API.
 - Interactive CLI commands:
   - `:candidates input`

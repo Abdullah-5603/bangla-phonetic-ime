@@ -2,12 +2,13 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalizeInput } from "./normalizer.js";
+import { parseTson, stringifyTson } from "./tson.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const memoryPath = path.resolve(
   __dirname,
-  "../data/user/user-dictionary.json"
+  "../data/user/user-dictionary.tson"
 );
 
 export function getUserMemoryPath() {
@@ -19,7 +20,7 @@ export function loadMemory() {
 
   try {
     const raw = fs.readFileSync(memoryPath, "utf8");
-    return JSON.parse(raw || "{}");
+    return parseTson(raw);
   } catch (error) {
     if (error instanceof SyntaxError) {
       backupInvalidMemory();
@@ -96,7 +97,7 @@ function ensureMemoryFile() {
 
 function writeMemory(memory) {
   fs.mkdirSync(path.dirname(memoryPath), { recursive: true });
-  fs.writeFileSync(memoryPath, `${JSON.stringify(memory, null, 2)}\n`);
+  fs.writeFileSync(memoryPath, stringifyTson(memory));
 }
 
 function backupInvalidMemory() {
@@ -107,4 +108,3 @@ function backupInvalidMemory() {
   const backupPath = `${memoryPath}.invalid-${Date.now()}.bak`;
   fs.copyFileSync(memoryPath, backupPath);
 }
-
